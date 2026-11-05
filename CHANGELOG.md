@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-05
 
 ### Added
 - **Domain health is now a full report** across five areas, with error/warning/passed counts per area, a “problems to look at” table with the affected host, and steps grouped by area. Choose which areas to run.
@@ -36,4 +36,5 @@ First release.
 - Single self-contained binary; localhost-only by default, with DNS-rebinding and cross-site request protection.
 - Installers: Windows setup.exe, `.deb`/`.rpm`/`.apk`, one-line install scripts for macOS/Linux and Windows.
 
+[0.2.0]: https://github.com/nahidacm/email-test-tools/releases/tag/v0.2.0
 [0.1.0]: https://github.com/nahidacm/email-test-tools/releases/tag/v0.1.0
