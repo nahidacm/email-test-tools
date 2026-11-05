@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +20,26 @@ type DomainRequest struct {
 	Domain    string   `json:"domain"`
 	Selectors []string `json:"selectors"` // DKIM selectors to try (optional)
 	Server    string   `json:"server"`
+	// Areas to check: auth, mail, dns, blacklist, web. Empty means all.
+	Checks []string `json:"checks"`
+}
+
+// Report categories, in display order.
+const (
+	CatAuth      = "auth"
+	CatMail      = "mail"
+	CatDNS       = "dns"
+	CatBlacklist = "blacklist"
+	CatWeb       = "web"
+)
+
+var catOrder = map[string]int{CatAuth: 0, CatMail: 1, CatDNS: 2, CatBlacklist: 3, CatWeb: 4}
+
+// mxHost is one mail server with its addresses.
+type mxHost struct {
+	Pref int
+	Host string
+	IPs  []string
 }
 
 type DomainResult struct {
@@ -49,15 +71,63 @@ func CheckDomain(ctx context.Context, req DomainRequest) *report.Report {
 		return rep.Finish()
 	}
 	r := resolver(req.Server)
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	rep.Infof("Checking email setup for %s", domain)
+	want := func(c string) bool {
+		if len(req.Checks) == 0 {
+			return true
+		}
+		for _, x := range req.Checks {
+			if x == c {
+				return true
+			}
+		}
+		return false
+	}
+	rep.Infof("Checking %s", domain)
 
-	checkMX(ctx, rep, r, domain, res)
-	checkSPF(ctx, rep, r, domain, res)
-	checkDMARC(ctx, rep, r, domain, res)
-	checkDKIM(ctx, rep, r, domain, req.Selectors, res)
-	checkExtras(ctx, rep, r, domain, res)
+	// MX first: the mail-server and blacklist checks need the addresses.
+	mxs := checkMX(ctx, rep, r, domain, res)
+
+	var wg sync.WaitGroup
+	run := func(c string, fn func()) {
+		if want(c) {
+			wg.Add(1)
+			go func() { defer wg.Done(); fn() }()
+		}
+	}
+	run(CatAuth, func() {
+		checkSPF(ctx, rep, r, domain, res)
+		policy := checkDMARC(ctx, rep, r, domain, res)
+		checkBIMI(ctx, rep, r, domain, policy)
+		checkDKIM(ctx, rep, r, domain, req.Selectors, res)
+		checkExtras(ctx, rep, r, domain, res)
+	})
+	run(CatMail, func() { checkMailServers(ctx, rep, r, mxs) })
+	run(CatDNS, func() { checkDNSHealth(ctx, rep, r, domain) })
+	run(CatBlacklist, func() { checkBlacklists(ctx, rep, r, domain, mxs) })
+	run(CatWeb, func() { checkWeb(ctx, rep, r, domain) })
+	wg.Wait()
+
+	// Order by area; inside an area, group steps by host (domain-level first).
+	// Stable, so each host's steps keep the order they were run in.
+	sort.SliceStable(rep.Steps, func(i, j int) bool {
+		a, b := rep.Steps[i], rep.Steps[j]
+		if ca, cb := catOrder[a.Category], catOrder[b.Category]; ca != cb {
+			return ca < cb
+		}
+		ta, tb := a.Target, b.Target
+		if a.Category == CatAuth || a.Category == CatDNS {
+			return false // keep run order
+		}
+		if ta == domain {
+			ta = ""
+		}
+		if tb == domain {
+			tb = ""
+		}
+		return ta < tb
+	})
 
 	rep.Finish()
 	fails, warns := 0, 0
@@ -71,7 +141,7 @@ func CheckDomain(ctx context.Context, req DomainRequest) *report.Report {
 	}
 	switch {
 	case fails > 0:
-		rep.Headline = fmt.Sprintf("%s has %d problem(s) that can stop email from arriving or being trusted.", domain, fails)
+		rep.Headline = fmt.Sprintf("%s has %d problem(s) and %d warning(s).", domain, fails, warns)
 		rep.Advice = "Fix the red items first. Changes are made at your DNS provider (where you bought or host the domain) and can take up to a few hours to apply."
 	case warns > 0:
 		rep.Headline = fmt.Sprintf("%s is mostly set up, with %d thing(s) to improve.", domain, warns)
@@ -95,23 +165,26 @@ func txt(ctx context.Context, rep *report.Report, r *net.Resolver, name string) 
 	return v, nil
 }
 
-func checkMX(ctx context.Context, rep *report.Report, r *net.Resolver, domain string, res *DomainResult) {
-	st := rep.Begin("mx", "Can this domain receive email? (MX)")
+// DocsURL is where each check's "More info" link points.
+const DocsURL = "https://github.com/nahidacm/email-test-tools/blob/main/docs/checks.md#"
+
+func checkMX(ctx context.Context, rep *report.Report, r *net.Resolver, domain string, res *DomainResult) (hosts []mxHost) {
+	st := rep.BeginIn(CatMail, domain, "mx", "Can this domain receive email? (MX)").Info(DocsURL + "mx")
 	rep.Sent("MX %s", domain)
 	mx, err := r.LookupMX(ctx, domain)
 	if err != nil && !isNotFound(err) {
 		st.Detail("%v", err)
 		st.Set(report.Fail, "We couldn't look up mail servers: "+friendlyDNSErr(err), "")
-		return
+		return nil
 	}
 	if len(mx) == 1 && (mx[0].Host == "." || mx[0].Host == "") {
 		st.Set(report.Info, "This domain says it never accepts email (null MX).", "That's intentional for domains that only send, or don't use email at all.")
-		return
+		return nil
 	}
 	if len(mx) == 0 {
 		st.Set(report.Fail, "No mail servers are listed, so nobody can send email to this domain.",
 			"Add MX records at your DNS provider. Your email host (Google Workspace, Microsoft 365, your web host…) tells you which values to use.")
-		return
+		return nil
 	}
 	bad := 0
 	for _, m := range mx {
@@ -124,6 +197,7 @@ func checkMX(ctx context.Context, rep *report.Report, r *net.Resolver, domain st
 			continue
 		}
 		st.Detail("%d %s → %s", m.Pref, m.Host, strings.Join(ips, ", "))
+		hosts = append(hosts, mxHost{Pref: int(m.Pref), Host: strings.TrimSuffix(m.Host, "."), IPs: ips})
 	}
 	switch {
 	case bad == len(mx):
@@ -133,10 +207,11 @@ func checkMX(ctx context.Context, rep *report.Report, r *net.Resolver, domain st
 	default:
 		st.Set(report.OK, fmt.Sprintf("Yes: %d mail server(s) are set up.", len(mx)), "")
 	}
+	return hosts
 }
 
 func checkSPF(ctx context.Context, rep *report.Report, r *net.Resolver, domain string, res *DomainResult) {
-	st := rep.Begin("spf", "Who may send as this domain? (SPF)")
+	st := rep.BeginIn(CatAuth, domain, "spf", "Who may send as this domain? (SPF)").Info(DocsURL + "spf")
 	recs, err := txt(ctx, rep, r, domain)
 	if err != nil {
 		st.Set(report.Fail, "Lookup failed: "+friendlyDNSErr(err), "")
@@ -166,6 +241,14 @@ func checkSPF(ctx context.Context, rep *report.Report, r *net.Resolver, domain s
 	res.SPF = rec
 	st.Detail("Record: %s", rec)
 
+	problems, warnings := spfSyntax(rec)
+	if len(problems) > 0 {
+		st.Details = append(st.Details, problems...)
+		st.MoreInfo = DocsURL + "spf-syntax"
+		st.Set(report.Fail, "The SPF record has invalid syntax, so receivers ignore it (as if there were no SPF at all).", strings.Join(problems, " "))
+		return
+	}
+
 	lookups, notes := spfLookups(ctx, rep, r, domain, rec, 0, map[string]bool{})
 	res.Lookups = lookups
 	st.Detail("DNS lookups needed: %d of 10 allowed", lookups)
@@ -178,8 +261,11 @@ func checkSPF(ctx context.Context, rep *report.Report, r *net.Resolver, domain s
 			all = f
 		}
 	}
-	var issues []string
+	issues := warnings
 	status := report.OK
+	if len(warnings) > 0 {
+		status = report.Warn
+	}
 	summary := "SPF is set up."
 	switch all {
 	case "-all":
@@ -205,14 +291,11 @@ func checkSPF(ctx context.Context, rep *report.Report, r *net.Resolver, domain s
 		status = report.Warn
 		issues = append(issues, fmt.Sprintf("SPF uses %d of 10 allowed DNS lookups. Adding another service may break it.", lookups))
 	}
-	if strings.Contains(" "+strings.ToLower(rec)+" ", " ptr") {
-		issues = append(issues, "The “ptr” mechanism is deprecated and slow; consider removing it.")
-		if status == report.OK {
-			status = report.Warn
-		}
-	}
 	if status != report.OK {
-		summary = "SPF exists but has problems."
+		summary = "SPF works, but could be improved."
+		if status == report.Fail {
+			summary = "SPF exists but has problems."
+		}
 	}
 	st.Set(status, summary, strings.Join(issues, " "))
 }
@@ -273,8 +356,9 @@ func tag(rec, key string) string {
 	return ""
 }
 
-func checkDMARC(ctx context.Context, rep *report.Report, r *net.Resolver, domain string, res *DomainResult) {
-	st := rep.Begin("dmarc", "What happens to fake email? (DMARC)")
+// checkDMARC returns the effective policy (none/quarantine/reject) and pct.
+func checkDMARC(ctx context.Context, rep *report.Report, r *net.Resolver, domain string, res *DomainResult) (policy string) {
+	st := rep.BeginIn(CatAuth, "_dmarc."+domain, "dmarc", "What happens to fake email? (DMARC)").Info(DocsURL + "dmarc")
 	find := func(d string) string {
 		recs, _ := txt(ctx, rep, r, "_dmarc."+d)
 		for _, t := range recs {
@@ -298,7 +382,7 @@ func checkDMARC(ctx context.Context, rep *report.Report, r *net.Resolver, domain
 	if rec == "" {
 		st.Set(report.Fail, "No DMARC policy. Anyone can send email pretending to be this domain, and Gmail/Yahoo/Outlook now expect DMARC from senders.",
 			fmt.Sprintf("Add a TXT record named _dmarc.%s with a value like “v=DMARC1; p=none; rua=mailto:dmarc@%s”. Start with p=none to monitor, then move to quarantine or reject.", domain, domain))
-		return
+		return ""
 	}
 	res.DMARC = rec
 	st.Detail("Record: %s", rec)
@@ -316,6 +400,15 @@ func checkDMARC(ctx context.Context, rep *report.Report, r *net.Resolver, domain
 		st.Detail("Reports go to: %s", rua)
 	}
 	var hint []string
+	if bad := dmarcSyntax(rec); len(bad) > 0 {
+		st.Details = append(st.Details, bad...)
+		st.Set(report.Fail, "The DMARC record has errors.", strings.Join(bad, " "))
+		return ""
+	}
+	policy = p
+	if pct != "" && pct != "100" {
+		policy += "/" + pct
+	}
 	if rua == "" {
 		hint = append(hint, "Add rua=mailto:you@yourdomain to receive reports about who sends email as your domain.")
 	}
@@ -333,10 +426,99 @@ func checkDMARC(ctx context.Context, rep *report.Report, r *net.Resolver, domain
 	default:
 		st.Set(report.Fail, "The DMARC record is invalid: the p= policy is missing or unknown.", "The record must include p=none, p=quarantine or p=reject.")
 	}
+	return policy
+}
+
+// dmarcSyntax checks tag values (RFC 7489 §6.3).
+func dmarcSyntax(rec string) []string {
+	var bad []string
+	parts := strings.Split(rec, ";")
+	if strings.ReplaceAll(strings.TrimSpace(parts[0]), " ", "") != "v=DMARC1" {
+		bad = append(bad, "The record must start exactly with “v=DMARC1;”.")
+	}
+	seen := map[string]bool{}
+	for _, p := range parts[1:] {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(p, "=")
+		k, v = strings.ToLower(strings.TrimSpace(k)), strings.TrimSpace(v)
+		if !ok {
+			bad = append(bad, fmt.Sprintf("“%s” is not a tag=value pair.", p))
+			continue
+		}
+		if seen[k] {
+			bad = append(bad, fmt.Sprintf("Tag “%s” appears twice.", k))
+		}
+		seen[k] = true
+		lv := strings.ToLower(v)
+		switch k {
+		case "p", "sp":
+			if lv != "none" && lv != "quarantine" && lv != "reject" {
+				bad = append(bad, fmt.Sprintf("%s=%s: must be none, quarantine or reject.", k, v))
+			}
+		case "pct":
+			if n, err := strconv.Atoi(v); err != nil || n < 0 || n > 100 {
+				bad = append(bad, fmt.Sprintf("pct=%s: must be a number from 0 to 100.", v))
+			}
+		case "adkim", "aspf":
+			if lv != "r" && lv != "s" {
+				bad = append(bad, fmt.Sprintf("%s=%s: must be r (relaxed) or s (strict).", k, v))
+			}
+		case "rua", "ruf":
+			for _, u := range strings.Split(v, ",") {
+				if u = strings.TrimSpace(u); !strings.HasPrefix(strings.ToLower(u), "mailto:") || !strings.Contains(u, "@") {
+					bad = append(bad, fmt.Sprintf("%s: “%s” must look like mailto:reports@example.com.", k, u))
+				}
+			}
+		case "fo", "rf", "ri", "np", "t", "psd":
+		default:
+			bad = append(bad, fmt.Sprintf("Unknown tag “%s”.", k))
+		}
+	}
+	return bad
+}
+
+func checkBIMI(ctx context.Context, rep *report.Report, r *net.Resolver, domain, policy string) {
+	st := rep.BeginIn(CatAuth, "default._bimi."+domain, "bimi", "Brand logo in inboxes (BIMI)").Info(DocsURL + "bimi")
+	var rec string
+	for _, t := range mustTXT(ctx, rep, r, "default._bimi."+domain) {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(t)), "v=bimi1") {
+			rec = t
+		}
+	}
+	enforced := policy == "quarantine" || policy == "reject"
+	if rec == "" {
+		hint := "Optional. BIMI shows your logo next to your emails in Gmail, Yahoo and Apple Mail."
+		if !enforced {
+			hint += " It requires DMARC with p=quarantine or p=reject at 100%, which this domain doesn't have yet."
+		}
+		st.Set(report.Info, "Not set up: your logo won't appear in recipients' inboxes.", hint)
+		return
+	}
+	st.Detail("Record: %s", rec)
+	logo := tag(rec, "l")
+	if logo != "" {
+		st.Detail("Logo: %s", logo)
+	}
+	if a := tag(rec, "a"); a != "" {
+		st.Detail("Certificate (VMC/CMC): %s", a)
+	}
+	switch {
+	case !enforced:
+		st.Set(report.Warn, "BIMI is published but won't work yet.", "BIMI requires DMARC with p=quarantine or p=reject at 100%.")
+	case !strings.HasPrefix(strings.ToLower(logo), "https://"):
+		st.Set(report.Warn, "BIMI is published, but the logo address (l=) is missing or not https.", "Point l= to an https:// URL of an SVG Tiny PS logo.")
+	case tag(rec, "a") == "":
+		st.Set(report.OK, "BIMI is set up. Gmail and Apple Mail also need a mark certificate (a=) to show the logo.", "")
+	default:
+		st.Set(report.OK, "BIMI is set up with a logo and certificate.", "")
+	}
 }
 
 func checkDKIM(ctx context.Context, rep *report.Report, r *net.Resolver, domain string, selectors []string, res *DomainResult) {
-	st := rep.Begin("dkim", "Are messages signed? (DKIM)")
+	st := rep.BeginIn(CatAuth, domain, "dkim", "Are messages signed? (DKIM)").Info(DocsURL + "dkim")
 	userGiven := false
 	var sels []string
 	for _, s := range selectors {
@@ -432,7 +614,7 @@ func describeDKIM(rec string) string {
 }
 
 func checkExtras(ctx context.Context, rep *report.Report, r *net.Resolver, domain string, res *DomainResult) {
-	st := rep.Begin("extras", "Extra protection (MTA-STS, TLS reporting)")
+	st := rep.BeginIn(CatAuth, domain, "extras", "Extra protection (MTA-STS, TLS reporting)").Info(DocsURL + "mta-sts")
 	for _, t := range mustTXT(ctx, rep, r, "_mta-sts."+domain) {
 		if strings.HasPrefix(strings.ToLower(t), "v=stsv1") {
 			res.MTASTS = t

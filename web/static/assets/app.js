@@ -123,7 +123,7 @@
       heloName: f.heloName.value, timeoutSec: toInt(f.timeoutSec.value),
       skipVerify: f.skipVerify.checked,
     }),
-    domain: (f) => ({ domain: f.domain.value, selectors: f.selectors.value.split(/[\s,]+/).filter(Boolean), server: f.server.value }),
+    domain: (f) => ({ domain: f.domain.value, selectors: f.selectors.value.split(/[\s,]+/).filter(Boolean), server: f.server.value, checks: $$('input[name="checks"]:checked', f).map((c) => c.value) }),
     ports: (f) => ({ host: f.host.value, ports: f.ports.value.split(/[\s,;]+/).map(toInt).filter((n) => n > 0 && n < 65536) }),
     dns: (f) => ({ name: f.name.value, types: $$('input[name="types"]:checked', f).map((c) => c.value), server: f.server.value }),
     tls: (f) => ({ host: f.host.value, port: toInt(f.port.value), mode: f.mode.value }),
@@ -192,7 +192,7 @@
   });
 
   function loadingCard(tool) {
-    const msg = { smtp: 'Talking to the mail server…', domain: 'Checking DNS records…', ports: 'Knocking on ports…', dns: 'Asking DNS…', tls: 'Inspecting the certificate…' }[tool];
+    const msg = { smtp: 'Talking to the mail server…', domain: 'Checking DNS, mail servers, blacklists and website… (up to a minute)', ports: 'Knocking on ports…', dns: 'Asking DNS…', tls: 'Inspecting the certificate…' }[tool];
     return `<div class="card"><div class="card-body flex-row items-center gap-4">
       <span class="loading loading-spinner loading-lg text-primary"></span>
       <div><p class="font-medium">${msg}</p><p class="text-sm text-base-content/60">This can take up to a minute if a server is slow to answer.</p></div>
@@ -214,11 +214,82 @@
           </div>
         </div>
         ${renderExtra(rep)}
-        <div class="card"><div class="card-body p-0">
-          <ol class="divide-base-content/10 divide-y">${rep.steps.map(renderStep).join('')}</ol>
-        </div></div>
+        ${renderSteps(rep)}
         ${renderLog(rep)}
       </div>`;
+  }
+
+  // Areas of the domain report, in display order.
+  const CATS = {
+    auth: { name: 'Email authentication', icon: 'icon-[tabler--shield-check]' },
+    mail: { name: 'Mail server', icon: 'icon-[tabler--mail]' },
+    dns: { name: 'DNS', icon: 'icon-[tabler--world]' },
+    blacklist: { name: 'Blacklist', icon: 'icon-[tabler--ban]' },
+    web: { name: 'Web server', icon: 'icon-[tabler--world-www]' },
+  };
+  const count = (steps) => ({
+    fail: steps.filter((x) => x.status === 'fail').length,
+    warn: steps.filter((x) => x.status === 'warn').length,
+    ok: steps.filter((x) => x.status === 'ok').length,
+  });
+
+  function renderSteps(rep) {
+    const list = (steps) => `<div class="card"><div class="card-body p-0">
+      <ol class="divide-base-content/10 divide-y">${steps.map(renderStep).join('')}</ol></div></div>`;
+    if (!rep.steps.some((x) => x.category)) return list(rep.steps);
+
+    const cats = Object.keys(CATS).filter((c) => rep.steps.some((x) => x.category === c));
+    const card = (title, icon, c, active) => {
+      const bar = c.fail ? 'bg-error' : c.warn ? 'bg-warning' : 'bg-success';
+      const line = (n, label, cls, ic) => `<li class="flex items-center gap-2 ${n ? cls : 'text-base-content/50'}"><span class="${ic} size-4"></span>${n} ${label}</li>`;
+      return `<div class="card overflow-hidden ${active ? 'ring-base-content/20 ring-2' : ''}">
+        <div class="card-body gap-3 p-4">
+          <h3 class="flex items-center gap-2 font-semibold text-base-content"><span class="${icon} size-5"></span>${title}</h3>
+          <ul class="flex flex-col gap-1 text-sm">
+            ${line(c.fail, 'Errors', 'text-error', 'icon-[tabler--circle-x-filled]')}
+            ${line(c.warn, 'Warnings', 'text-warning', 'icon-[tabler--alert-triangle-filled]')}
+            ${line(c.ok, 'Passed', 'text-success', 'icon-[tabler--circle-check-filled]')}
+          </ul>
+        </div>
+        <div class="${bar} h-1.5"></div>
+      </div>`;
+    };
+    const total = count(rep.steps);
+    const cards = `<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 2xl:grid-cols-6">
+      ${card('Problems', 'icon-[tabler--alert-octagon]', total, true)}
+      ${cats.map((c) => card(CATS[c].name, CATS[c].icon, count(rep.steps.filter((x) => x.category === c)))).join('')}
+    </div>`;
+
+    const problems = rep.steps.filter((x) => x.status === 'fail' || x.status === 'warn')
+      .sort((a, b) => (a.status === b.status ? 0 : a.status === 'fail' ? -1 : 1));
+    const table = problems.length ? `<div class="card">
+      <div class="card-body pb-2"><h3 class="card-title">${problems.length} problem${problems.length === 1 ? '' : 's'} to look at</h3>
+        <p class="text-sm text-base-content/60">Click a row to jump to the full explanation.</p></div>
+      <div class="overflow-x-auto"><table class="table">
+        <thead><tr><th class="w-8"></th><th>Area</th><th>Host</th><th>Result</th><th></th></tr></thead>
+        <tbody>${problems.map((x) => {
+          const s = STATUS[x.status];
+          return `<tr class="hover:bg-base-200/60 cursor-pointer" data-jump="step-${esc(x.id)}">
+            <td><span class="${s.icon} ${s.color} size-5"></span></td>
+            <td class="whitespace-nowrap">${esc(CATS[x.category]?.name || '')}</td>
+            <td class="max-w-48 truncate font-mono text-xs" title="${esc(x.target || '')}">${esc(x.target || '')}</td>
+            <td class="min-w-64 whitespace-normal"><span class="font-medium">${esc(x.title)}</span><br><span class="text-sm text-base-content/70">${esc(x.summary)}</span></td>
+            <td class="text-right whitespace-nowrap">${moreInfo(x)}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>` : `<div class="alert alert-soft alert-success flex flex-row items-center gap-3"><span class="icon-[tabler--confetti] size-6"></span>No problems found. Everything checked passed.</div>`;
+
+    const groups = cats.map((c) => `<section class="flex flex-col gap-2">
+      <h3 class="mt-2 flex items-center gap-2 text-lg font-semibold text-base-content"><span class="${CATS[c].icon} size-5"></span>${CATS[c].name}</h3>
+      ${list(rep.steps.filter((x) => x.category === c))}
+    </section>`).join('');
+    return cards + table + `<h2 class="mt-4 text-xl font-semibold text-base-content">All checks</h2>` + groups;
+  }
+
+  function moreInfo(st) {
+    if (!st.moreInfo || !/^https?:\/\//.test(st.moreInfo)) return '';
+    return `<a class="link link-primary inline-flex items-center gap-1 text-sm whitespace-nowrap" href="${esc(st.moreInfo)}" target="_blank" rel="noopener noreferrer"><span class="icon-[tabler--info-circle] size-4"></span>More info</a>`;
   }
 
   function renderStep(st) {
@@ -228,12 +299,12 @@
            <summary class="cursor-pointer text-xs text-base-content/60 select-none">Technical details</summary>
            <pre class="bg-base-200 rounded-field mt-2 overflow-x-auto p-3 font-mono text-xs leading-5 whitespace-pre-wrap break-all">${esc(st.details.join('\n'))}</pre>
          </details>` : '';
-    return `<li class="flex gap-3 p-4">
+    return `<li class="flex gap-3 p-4 scroll-mt-24 transition-colors" id="step-${esc(st.id)}">
       <span class="${s.icon} ${s.color} mt-0.5 size-6 shrink-0" title="${s.label}"></span>
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h3 class="font-medium text-base-content">${esc(st.title)}</h3>
-          ${st.durationMs ? `<span class="text-xs tabular-nums text-base-content/50">${st.durationMs} ms</span>` : ''}
+          <h3 class="font-medium text-base-content">${esc(st.title)}${st.target ? ` <span class="badge badge-soft badge-sm ms-1 max-w-full truncate align-middle font-mono font-normal">${esc(st.target)}</span>` : ''}</h3>
+          <span class="flex items-center gap-3">${moreInfo(st)}${st.durationMs ? `<span class="text-xs tabular-nums text-base-content/50">${st.durationMs} ms</span>` : ''}</span>
         </div>
         ${st.summary ? `<p class="text-base-content/80">${esc(st.summary)}</p>` : ''}
         ${st.hint ? `<p class="bg-base-200 rounded-field mt-2 flex gap-2 p-2 text-sm"><span class="icon-[tabler--bulb] text-warning size-5 shrink-0"></span><span><b>What to do:</b> ${esc(st.hint)}</span></p>` : ''}
@@ -282,16 +353,6 @@
           <tbody>${d.map((p) => `<tr><td class="font-mono">${p.port}</td><td>${esc(p.service)}</td><td>${stateBadge[p.state] || esc(p.state)}</td><td class="text-right tabular-nums">${p.latencyMs} ms</td></tr>`).join('')}</tbody>
         </table></div>`;
       }
-      case 'domain': {
-        const items = [
-          ['MX', d.mx?.length > 0], ['SPF', !!d.spf], ['DKIM', Object.keys(d.dkim || {}).length > 0], ['DMARC', !!d.dmarc],
-        ];
-        return `<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">${items.map(([k, ok]) => `
-          <div class="card"><div class="card-body items-center p-4 text-center">
-            <span class="${ok ? 'icon-[tabler--circle-check-filled] text-success' : 'icon-[tabler--circle-x-filled] text-error'} size-8"></span>
-            <span class="font-semibold">${k}</span><span class="text-xs text-base-content/60">${ok ? 'found' : 'missing'}</span>
-          </div></div>`).join('')}</div>`;
-      }
       case 'tls': {
         const i = d.info;
         if (!i?.chain?.length) return '';
@@ -315,6 +376,14 @@
   }
 
   function bindResult(out, rep) {
+    $$('[data-jump]', out).forEach((row) => row.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      const el = document.getElementById(row.dataset.jump);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.classList.add('bg-base-200');
+      setTimeout(() => el.classList.remove('bg-base-200'), 1500);
+    }));
     const copy = $('[data-copy-log]', out);
     copy?.addEventListener('click', async (e) => {
       e.preventDefault();

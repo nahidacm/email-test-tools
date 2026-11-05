@@ -47,9 +47,22 @@ type Step struct {
 	Hint       string   `json:"hint,omitempty"`    // what to do about it
 	Details    []string `json:"details,omitempty"` // technical facts
 	DurationMs int64    `json:"durationMs"`
+	Category   string   `json:"category,omitempty"` // groups steps in multi-area reports
+	Target     string   `json:"target,omitempty"`   // host/IP the step is about
+	MoreInfo   string   `json:"moreInfo,omitempty"` // link to an explanation
 
 	start time.Time
 }
+
+// BeginIn starts a step in a category, about a specific target.
+func (r *Report) BeginIn(category, target, id, title string) *Step {
+	s := r.Begin(id, title)
+	s.Category, s.Target = category, target
+	return s
+}
+
+// Info sets the "More info" link.
+func (s *Step) Info(url string) *Step { s.MoreInfo = url; return s }
 
 // LogLine is one entry of the technical log.
 // Dir: ">" sent by us, "<" received, "*" info, "!" error.

@@ -77,28 +77,34 @@ Use this when an app, website, printer, scanner or CMS can't send email.
 
 ## Domain health
 
-Use this when emails from your domain land in spam, are rejected, or when you don't receive email at all. Enter a domain (`example.com`) or a full email address.
+Use this when emails from your domain land in spam, are rejected, or when you don't receive email at all. Enter a domain (`example.com`) or a full email address. A full report takes 10–60 seconds.
 
-<img src="images/domain-health.png" alt="Domain health result" width="800">
+<img src="images/domain-health.png" alt="Domain health report" width="800">
 
-| Check | Question it answers | If it's missing |
-|---|---|---|
-| **MX** | Which servers receive email for this domain? | Nobody can email you. Add the MX records your email host gives you. |
-| **SPF** | Which servers may send email as this domain? | Your mail is more likely to be marked as spam. |
-| **DKIM** | Are messages digitally signed, proving they weren't altered? | Lower trust. Turn on DKIM in your email provider's admin panel. |
-| **DMARC** | What should receivers do with email that fails SPF/DKIM? | Anyone can impersonate your domain. Gmail, Yahoo and Outlook now expect DMARC from bulk senders. |
-| **MTA-STS / TLS-RPT** | Must other servers use encryption when sending to you? | Optional extra protection. |
+**Reading the report**
+1. **Summary cards** count errors, warnings and passed checks for each area. The coloured bar shows the worst result: red, orange or green.
+2. **Problems to look at** lists every error and warning with the **host** it concerns. Click a row to jump to its full explanation, or **More info** for background and step-by-step fixes ([check reference](checks.md)).
+3. **All checks** shows every result, grouped by area.
 
-**SPF tips**
-- A domain must have **exactly one** SPF record. Two records break both.
-- SPF may trigger **at most 10 DNS lookups**. Each `include:` counts, including the ones nested inside it. The tool counts these for you.
-- End with `~all` (soft fail) or `-all` (strict). Never use `+all`, which allows anyone to send as you.
+| Area | What's checked |
+|---|---|
+| **Email authentication** | [SPF](checks.md#spf) (exists, only one, [valid syntax](checks.md#spf-syntax), 10-lookup limit, `all` policy), [DMARC](checks.md#dmarc) (policy, tag syntax, reporting), [BIMI](checks.md#bimi), [DKIM](checks.md#dkim) (keys and key size), [MTA-STS & TLS-RPT](checks.md#mta-sts) |
+| **Mail server** | [MX records](checks.md#mx), and for each mail server: [reverse DNS (PTR)](checks.md#ptr), [SMTP greeting and response time](checks.md#smtp-banner), [STARTTLS and certificate](checks.md#starttls), [open relay test](checks.md#open-relay) |
+| **DNS** | [Name servers](checks.md#ns) exist, [answer authoritatively and quickly](checks.md#ns-respond), [sit on different networks](checks.md#ns-subnet), [are in sync](checks.md#soa-serial), and [SOA timing values](checks.md#soa-values) |
+| **Blacklist** | Each mail server IP against 23 IP blacklists, and the domain against 4 domain blacklists ([details](checks.md#blacklist)) |
+| **Web server** | [Website loads over HTTPS](checks.md#website) with a valid certificate; [HTTP redirects to HTTPS](checks.md#https-redirect) |
 
-**DKIM tip:** DKIM keys live under a name called a *selector*. The tool tries about 35 common ones. If yours isn't found, open an email sent from the domain, view its original source/headers, find `DKIM-Signature: … s=XXXX;` and enter `XXXX` as the selector.
+Untick an area under **What to check** to skip it. For example, skip *Mail servers* if your network blocks port 25.
 
-**DMARC rollout:** start with `p=none` and a `rua=` address to receive reports. Once the reports show all your real email passing, move to `p=quarantine`, then `p=reject`.
+> **Safe to run on any domain.** The mail server check connects like a normal sending server and tests relaying with fake outside addresses, then cancels. No email is ever sent.
 
-DNS changes can take from a few minutes up to 48 hours to appear everywhere. Choose a different **DNS server** in the form to compare.
+**Common quick wins**
+- **Exactly one SPF record**, written as one piece or with spaces between quoted pieces. `"v=spf1" "include:x" "-all"` is a classic broken record.
+- **Add DMARC**, starting with `p=none` and a `rua=` address, and later move to `quarantine`/`reject`.
+- **Turn on DKIM** in your email provider's admin panel.
+- **Reverse DNS** for your mail server's IP is set by whoever owns the IP, usually your mail or hosting provider.
+
+DNS changes can take from a few minutes up to 48 hours to appear everywhere. Choose a different **DNS server** in the form to compare. Note that some blacklists refuse lookups through public resolvers.
 
 ## Port check
 
@@ -153,7 +159,7 @@ Checks the encryption and certificate of a mail (or web) server.
 | *Relaying denied* (550 5.7.1) | Not logged in, so the server only accepts mail for its own domains | Enter username and password. |
 | *Won't let you send as this address* (553/550) | From address doesn't belong to the account | Use your own address or a verified alias/domain. |
 | *Recipient isn't allowed yet / not verified* | Amazon SES or Mailgun sandbox | Verify the recipient, or request production access. |
-| Test accepted but the email never arrives | Spam filtering at the receiver | Run **Domain health** and fix SPF, DKIM and DMARC. Check the spam folder. |
+| Test accepted but the email never arrives | Spam filtering at the receiver | Run **Domain health** and fix SPF, DKIM and DMARC, reverse DNS and any blacklist listings. Check the spam folder. |
 
 ## Glossary
 

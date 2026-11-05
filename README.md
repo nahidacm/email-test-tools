@@ -13,7 +13,7 @@ Every result explains itself, with a full protocol log for the experts.
 [![Release](https://img.shields.io/github/v/release/nahidacm/email-test-tools)](https://github.com/nahidacm/email-test-tools/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[**Download**](https://github.com/nahidacm/email-test-tools/releases/latest) · [User guide](docs/user-guide.md) · [Development](docs/development.md)
+[**Download**](https://github.com/nahidacm/email-test-tools/releases/latest) · [User guide](docs/user-guide.md) · [Check reference](docs/checks.md) · [Development](docs/development.md)
 
 <img src="docs/images/smtp-test.png" alt="SMTP test showing a failed connection with a plain-language fix" width="900">
 
@@ -30,7 +30,7 @@ It runs **on your own computer** (nothing to sign up for, no data sent to us) an
 | | Tool | Use it when… |
 |---|---|---|
 | ✉️ | **SMTP test** | Your app, website, printer or CMS can't send email. Tests connect → encrypt → log in → sender → recipients → send, with presets for Gmail, Microsoft 365, Yahoo, Zoho, iCloud, Amazon SES, SendGrid, Mailgun and MailHog/Mailpit. Has a *check only, don't send* mode. |
-| 🛡️ | **Domain health** | Your email lands in spam, or a domain doesn't receive mail. Checks MX, SPF (including the 10-lookup limit), DKIM, DMARC, MTA-STS and TLS-RPT. |
+| 🛡️ | **Domain health** | Your email lands in spam, or a domain doesn't receive mail. A full report with error/warning counts per area: **authentication** (SPF syntax & 10-lookup limit, DKIM, DMARC, BIMI, MTA-STS), **mail servers** (reverse DNS, SMTP response, STARTTLS, open relay), **DNS** (name server health, SOA), **blacklists** (27 lists) and **website** (HTTPS). Every finding links to a [plain-language explanation](docs/checks.md). |
 | 🔌 | **Port check** | You see “connection timed out”. Shows whether ports 25/465/587/993… are open, closed or silently blocked by a firewall or your ISP. |
 | 🌐 | **DNS lookup** | You want to see A, AAAA, MX, TXT, NS, CNAME or PTR records, optionally through a specific DNS server. |
 | 🔒 | **Certificate check** | You get “certificate error” or “connection not secure”. Checks trust, name match, expiry and TLS versions (SSL/TLS or STARTTLS). |
@@ -109,14 +109,13 @@ See the **[User guide](docs/user-guide.md)** for a walkthrough of each tool and 
 
 ## Built with
 
-[Go](https://go.dev) (standard library only) · [Tailwind CSS v4](https://tailwindcss.com) · [FlyonUI](https://flyonui.com) · [Tabler Icons](https://tabler.io/icons) · [GoReleaser](https://goreleaser.com) · [NSIS](https://nsis.sourceforge.io)
+[Go](https://go.dev) (standard library + `x/net/dns`) · [Tailwind CSS v4](https://tailwindcss.com) · [FlyonUI](https://flyonui.com) · [Tabler Icons](https://tabler.io/icons) · [GoReleaser](https://goreleaser.com) · [NSIS](https://nsis.sourceforge.io)
 
 The UI is embedded in the binary, so there is nothing else to install. See **[docs/development.md](docs/development.md)** to build from source, add a tool, or cut a release.
 
 ## Contributing
 
 Issues and pull requests are welcome. Ideas on the roadmap:
-- Blacklist (DNSBL) check for sending IPs
 - IMAP / POP3 login test
 - Email header analyzer (paste headers → hops, delays, SPF/DKIM/DMARC verdicts)
 - Built-in catch-all SMTP server for testing apps locally

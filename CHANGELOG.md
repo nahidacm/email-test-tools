@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Domain health is now a full report** across five areas, with error/warning/passed counts per area, a “problems to look at” table with the affected host, and steps grouped by area. Choose which areas to run.
+  - **Email authentication:** full SPF syntax validation (detects records split into quoted pieces without spaces, unknown terms, bad IPs/prefixes, misplaced `all`); DMARC tag validation; BIMI check.
+  - **Mail server:** for each MX IP: reverse DNS (PTR) and forward confirmation, SMTP greeting and response time, STARTTLS and certificate validity, open relay test (nothing is sent).
+  - **DNS:** name server count, direct authoritative SOA queries to each name server (timeouts, lame delegation, recursive-only servers), same-subnet detection, serial consistency, SOA value ranges.
+  - **Blacklist:** MX IPs against 23 DNS blocklists and the domain against 4 domain blocklists; separates major and minor lists and reports lists that couldn't be checked.
+  - **Web server:** HTTPS reachability and certificate, HTTP → HTTPS redirect.
+- Every check has a **More info** link to the new [check reference](docs/checks.md).
+
+### Changed
+- Domain health form sits above the report for more room.
+- New dependency: `golang.org/x/net/dns/dnsmessage`.
+
 ## [0.1.0] - 2026-11-05
 
 First release.

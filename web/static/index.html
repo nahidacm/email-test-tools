@@ -68,7 +68,7 @@
         <a href="#domain" class="card card-border hover:border-primary transition-colors"><div class="card-body">
           <span class="icon-[tabler--shield-check] text-primary size-7"></span>
           <h2 class="card-title mt-2">Domain health</h2>
-          <p>“My emails go to spam” or “I'm not receiving email.” Checks MX, SPF, DKIM and DMARC for a domain.</p>
+          <p>“My emails go to spam” or “I'm not receiving email.” Full report: SPF, DKIM, DMARC, mail servers, DNS, blacklists and website.</p>
         </div></a>
         <a href="#ports" class="card card-border hover:border-primary transition-colors"><div class="card-body">
           <span class="icon-[tabler--plug-connected] text-primary size-7"></span>
@@ -225,31 +225,45 @@
     <section data-page="domain" hidden>
       <header class="mb-4">
         <h1 class="text-2xl font-semibold text-base-content">Domain health</h1>
-        <p class="text-base-content/70">Checks the DNS settings that decide whether a domain can receive email, and whether email sent from it is trusted or lands in spam.</p>
+        <p class="text-base-content/70">A full check-up of a domain's email setup: authentication (SPF, DKIM, DMARC), its mail servers, DNS, blacklists and website. Tells you what decides whether email arrives, or lands in spam.</p>
       </header>
-      <div class="grid gap-6 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
-        <form class="card self-start" data-tool="domain">
+      <div class="flex flex-col gap-6">
+        <form class="card" data-tool="domain">
           <div class="card-body gap-4">
-            <div>
-              <label class="label-text" for="dom-domain">Domain</label>
-              <input class="input" id="dom-domain" name="domain" placeholder="example.com" required>
-              <p class="helper-text">The part after @ in an email address. You can paste a full address too.</p>
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-[2fr_1.5fr_1.5fr]">
+              <div>
+                <label class="label-text" for="dom-domain">Domain</label>
+                <input class="input" id="dom-domain" name="domain" placeholder="example.com" required>
+                <p class="helper-text">The part after @ in an email address. You can paste a full address too.</p>
+              </div>
+              <div>
+                <label class="label-text" for="dom-sel">DKIM selector <span class="text-base-content/50">(optional)</span></label>
+                <input class="input" id="dom-sel" name="selectors" placeholder="e.g. google, selector1">
+                <p class="helper-text">Leave empty and we'll try the most common ones.</p>
+              </div>
+              <div>
+                <label class="label-text" for="dom-server">DNS server <span class="text-base-content/50">(optional)</span></label>
+                <select class="select" id="dom-server" name="server">
+                  <option value="">Your computer's default</option>
+                  <option value="1.1.1.1">Cloudflare (1.1.1.1)</option>
+                  <option value="8.8.8.8">Google (8.8.8.8)</option>
+                  <option value="9.9.9.9">Quad9 (9.9.9.9)</option>
+                </select>
+                <p class="helper-text">Some blacklists refuse lookups made through public DNS servers.</p>
+              </div>
             </div>
             <div>
-              <label class="label-text" for="dom-sel">DKIM selector <span class="text-base-content/50">(optional)</span></label>
-              <input class="input" id="dom-sel" name="selectors" placeholder="e.g. google, selector1">
-              <p class="helper-text">Leave empty and we'll try the most common ones.</p>
+              <span class="label-text">What to check</span>
+              <div class="flex flex-wrap gap-x-6 gap-y-2">
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" name="checks" value="auth" checked>Email authentication</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" name="checks" value="mail" checked>Mail servers</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" name="checks" value="dns" checked>DNS</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" name="checks" value="blacklist" checked>Blacklists</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" name="checks" value="web" checked>Website</label>
+              </div>
+              <p class="helper-text">The mail server check connects to port 25 and tests for an open relay; it never sends an email.</p>
             </div>
-            <div>
-              <label class="label-text" for="dom-server">DNS server <span class="text-base-content/50">(optional)</span></label>
-              <select class="select" id="dom-server" name="server">
-                <option value="">Your computer's default</option>
-                <option value="1.1.1.1">Cloudflare (1.1.1.1)</option>
-                <option value="8.8.8.8">Google (8.8.8.8)</option>
-                <option value="9.9.9.9">Quad9 (9.9.9.9)</option>
-              </select>
-            </div>
-            <button class="btn btn-primary btn-lg" type="submit"><span class="icon-[tabler--player-play] size-5"></span>Check domain</button>
+            <div><button class="btn btn-primary btn-lg" type="submit"><span class="icon-[tabler--player-play] size-5"></span>Check domain</button></div>
           </div>
         </form>
         <div data-result="domain"></div>
