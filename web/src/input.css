@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @plugin "flyonui" {
   themes: light --default, dark --prefersdark, corporate;
 }

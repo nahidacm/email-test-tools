@@ -18,6 +18,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: false  # no third-party modules
 
       # The compiled CSS is committed (CI checks it is current), so no Node step is needed.
       - name: Build binaries, archives and Linux packages
