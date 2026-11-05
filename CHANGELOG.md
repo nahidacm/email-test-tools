@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- Domain health summary cards now count every blacklist checked (e.g. “20 passed, 1 warning, 6 not checked”) instead of one per server, and show lists that couldn't be queried. The headline and copied text use the same counts.
+
 ## [0.2.0] - 2026-11-05
 
 ### Added

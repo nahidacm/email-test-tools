@@ -130,14 +130,12 @@ func CheckDomain(ctx context.Context, req DomainRequest) *report.Report {
 	})
 
 	rep.Finish()
+	// Count individual checks (each blacklist counts once), matching the UI cards.
 	fails, warns := 0, 0
 	for _, s := range rep.Steps {
-		switch s.Status {
-		case report.Fail:
-			fails++
-		case report.Warn:
-			warns++
-		}
+		t := s.Tally()
+		fails += t.Fail
+		warns += t.Warn
 	}
 	switch {
 	case fails > 0:

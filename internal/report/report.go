@@ -50,8 +50,34 @@ type Step struct {
 	Category   string   `json:"category,omitempty"` // groups steps in multi-area reports
 	Target     string   `json:"target,omitempty"`   // host/IP the step is about
 	MoreInfo   string   `json:"moreInfo,omitempty"` // link to an explanation
+	Counts     *Counts  `json:"counts,omitempty"`   // per-check tally for multi-check steps
 
 	start time.Time
+}
+
+// Counts tallies the individual checks inside one step, e.g. one entry per
+// blacklist queried. Steps without Counts count as one check of their status.
+type Counts struct {
+	Fail      int `json:"fail"`
+	Warn      int `json:"warn"`
+	OK        int `json:"ok"`
+	Unchecked int `json:"unchecked"`
+}
+
+// Tally returns the step's individual check counts.
+func (s *Step) Tally() Counts {
+	if s.Counts != nil {
+		return *s.Counts
+	}
+	switch s.Status {
+	case Fail:
+		return Counts{Fail: 1}
+	case Warn:
+		return Counts{Warn: 1}
+	case OK:
+		return Counts{OK: 1}
+	}
+	return Counts{}
 }
 
 // BeginIn starts a step in a category, about a specific target.

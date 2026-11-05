@@ -156,6 +156,8 @@ func summarizeBlacklist(st *report.Step, results []blResult, what string) {
 		return strings.Join(n, ", ")
 	}
 	checked := len(results) - len(unknown)
+	// Each list is one check in the report's totals.
+	st.Counts = &report.Counts{Fail: len(major), Warn: len(minor), OK: checked - len(major) - len(minor), Unchecked: len(unknown)}
 	note := ""
 	if len(unknown) > 0 {
 		note = fmt.Sprintf(" %d list(s) couldn't be checked from your DNS (%s).", len(unknown), names(unknown))

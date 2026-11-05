@@ -190,7 +190,7 @@ These are usually set by your DNS provider. Values outside the range rarely brea
 
 Blacklists (DNS-based blocklists) record IP addresses and domains seen sending spam. Receivers consult them, and a listing on a **major** list (Spamhaus, SpamCop, Barracuda…) means much of your email is rejected or spam-foldered. Smaller or aggressive lists (e.g. UCEPROTECT levels 2–3, which list whole networks) are used by few receivers and are shown as warnings.
 
-The tool checks each mail server IP against 23 lists and the domain against 4 domain lists.
+The tool checks each mail server IP against 23 lists and the domain against 4 domain lists. In the summary cards, **each list counts as one check**: listed on a major list = error, on a minor list = warning, clean = passed, and lists that couldn't be queried are shown as *not checked*.
 
 **If you're listed**
 1. **Fix the cause first:** a compromised mailbox or website, malware on a computer, a misconfigured server (open relay), or sending to purchased lists.

@@ -298,6 +298,10 @@
   function stepText(st, withDetails = true) {
     const out = [`[${LEVEL[st.status] || st.status}] ${st.title}${st.target ? ` (${st.target})` : ''}`];
     if (st.summary) out.push(st.summary);
+    if (st.counts) {
+      const c = st.counts;
+      out.push(`Checks: ${c.fail + c.warn + c.ok + c.unchecked} total: ${c.fail} error, ${c.warn} warning, ${c.ok} passed, ${c.unchecked} not checked`);
+    }
     if (st.hint) out.push('What to do: ' + st.hint);
     if (withDetails && st.details?.length) out.push('Details:\n' + st.details.map((d) => '  - ' + d).join('\n'));
     if (st.moreInfo) out.push('More info: ' + st.moreInfo);
@@ -394,11 +398,14 @@ If anything is unclear or depends on information not shown here, ask me before a
     blacklist: { name: 'Blacklist', icon: 'icon-[tabler--ban]' },
     web: { name: 'Web server', icon: 'icon-[tabler--world-www]' },
   };
-  const count = (steps) => ({
-    fail: steps.filter((x) => x.status === 'fail').length,
-    warn: steps.filter((x) => x.status === 'warn').length,
-    ok: steps.filter((x) => x.status === 'ok').length,
-  });
+  // A step counts as one check, unless it carries its own tally
+  // (e.g. the blacklist step counts every list it queried).
+  const tally = (x) => x.counts
+    ? { fail: x.counts.fail, warn: x.counts.warn, ok: x.counts.ok, unchecked: x.counts.unchecked }
+    : { fail: +(x.status === 'fail'), warn: +(x.status === 'warn'), ok: +(x.status === 'ok'), unchecked: 0 };
+  const count = (steps) => steps.map(tally).reduce((a, t) => ({
+    fail: a.fail + t.fail, warn: a.warn + t.warn, ok: a.ok + t.ok, unchecked: a.unchecked + t.unchecked,
+  }), { fail: 0, warn: 0, ok: 0, unchecked: 0 });
 
   function renderSteps(rep) {
     const list = (steps) => `<div class="card"><div class="card-body p-0">
@@ -416,6 +423,7 @@ If anything is unclear or depends on information not shown here, ask me before a
             ${line(c.fail, 'Errors', 'text-error', 'icon-[tabler--circle-x-filled]')}
             ${line(c.warn, 'Warnings', 'text-warning', 'icon-[tabler--alert-triangle-filled]')}
             ${line(c.ok, 'Passed', 'text-success', 'icon-[tabler--circle-check-filled]')}
+            ${c.unchecked ? `<li class="flex items-center gap-2 text-base-content/60" title="Couldn't be queried from your network or DNS server"><span class="icon-[tabler--help-circle] size-4"></span>${c.unchecked} Not checked</li>` : ''}
           </ul>
         </div>
         <div class="${bar} h-1.5"></div>
@@ -498,7 +506,7 @@ If anything is unclear or depends on information not shown here, ask me before a
         <button type="button" class="btn btn-xs btn-soft" data-copy-log><span class="icon-[tabler--copy] size-4"></span>Copy</button>
         <button type="button" class="btn btn-xs btn-soft" data-download><span class="icon-[tabler--download] size-4"></span>JSON</button>
       </summary>
-      <div class="border-base-content/10 max-h-[32rem] overflow-y-auto border-t py-2">${lines}</div>
+      <div class="border-base-content/10 max-h-128 overflow-y-auto border-t py-2">${lines}</div>
       <p class="px-5 py-2 text-xs text-base-content/50">› sent by us · ‹ received from server · * info · ! error. Passwords are hidden.</p>
     </details>`;
   }
