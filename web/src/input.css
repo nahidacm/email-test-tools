@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@plugin "flyonui" {
+  themes: light --default, dark --prefersdark, corporate;
+}
+@source "../static";
+@plugin "@iconify/tailwind4";
+
+/* Technical log: one row per line, coloured by direction */
+.log-line { @apply grid gap-3 px-3 py-0.5 font-mono text-xs leading-5 whitespace-pre-wrap break-all; grid-template-columns: 4.5rem 1rem 1fr; }
+.log-line .t { @apply text-base-content/40 text-right tabular-nums; }
+.log-line[data-dir=">"] .d { @apply text-primary; }
+.log-line[data-dir="<"] .d { @apply text-success; }
+.log-line[data-dir="!"] { @apply bg-error/10; }
+.log-line[data-dir="!"] .d { @apply text-error; }
+.log-line[data-dir="*"] { @apply text-base-content/60; }
+
+[hidden] { display: none !important; }

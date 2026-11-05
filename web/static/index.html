@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email Test Tools</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/app.css">
+  <script src="assets/theme.js"></script>
+</head>
+<body class="bg-base-200 min-h-screen">
+
+<!-- Top bar -->
+<nav class="navbar bg-base-100 border-base-content/10 sticky top-0 z-20 border-b px-4">
+  <div class="navbar-start items-center gap-2">
+    <button type="button" class="btn btn-text btn-square lg:hidden" id="menu-toggle" aria-label="Open menu">
+      <span class="icon-[tabler--menu-2] size-5"></span>
+    </button>
+    <a href="#home" class="flex items-center gap-2 text-lg font-semibold text-base-content">
+      <span class="bg-primary text-primary-content grid size-8 place-items-center rounded-lg"><span class="icon-[tabler--mail-cog] size-5"></span></span>
+      Email Test Tools
+    </a>
+  </div>
+  <div class="navbar-end items-center gap-3">
+    <label class="hidden items-center gap-2 text-sm sm:flex" title="Show raw protocol details and logs under every result">
+      <input type="checkbox" class="switch switch-primary switch-sm" id="tech-mode">
+      Technical details
+    </label>
+    <button type="button" class="btn btn-text btn-square" id="theme-toggle" aria-label="Toggle dark mode">
+      <span class="icon-[tabler--moon] size-5 dark-hide"></span>
+    </button>
+  </div>
+</nav>
+
+<div class="mx-auto flex max-w-7xl gap-6 p-4 lg:p-6">
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="bg-base-100 fixed inset-y-0 left-0 z-30 w-72 -translate-x-full p-4 shadow-lg transition-transform lg:static lg:z-auto lg:w-60 lg:shrink-0 lg:translate-x-0 lg:rounded-box lg:shadow-none lg:self-start lg:sticky lg:top-24">
+    <ul class="menu gap-1 p-0" id="nav">
+      <li><a href="#home"><span class="icon-[tabler--home] size-5"></span>Start here</a></li>
+      <li class="menu-title">Email</li>
+      <li><a href="#smtp"><span class="icon-[tabler--send] size-5"></span>SMTP test</a></li>
+      <li><a href="#domain"><span class="icon-[tabler--shield-check] size-5"></span>Domain health</a></li>
+      <li class="menu-title">Network</li>
+      <li><a href="#ports"><span class="icon-[tabler--plug-connected] size-5"></span>Port check</a></li>
+      <li><a href="#dns"><span class="icon-[tabler--world-search] size-5"></span>DNS lookup</a></li>
+      <li><a href="#tls"><span class="icon-[tabler--certificate] size-5"></span>Certificate check</a></li>
+    </ul>
+    <div class="border-base-content/10 mt-6 border-t pt-4 text-xs text-base-content/60">
+      Runs on your computer. Passwords are only sent to the mail server you test and are never saved.
+      <div class="mt-2" id="version"></div>
+    </div>
+  </aside>
+  <div id="backdrop" class="fixed inset-0 z-20 bg-black/40 lg:hidden" hidden></div>
+
+  <main class="min-w-0 flex-1">
+
+    <!-- ============ HOME ============ -->
+    <section data-page="home">
+      <h1 class="text-2xl font-semibold text-base-content">What would you like to check?</h1>
+      <p class="mt-1 text-base-content/70">Pick a tool. Each one explains the result in plain words and keeps a full technical log for experts.</p>
+      <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <a href="#smtp" class="card card-border hover:border-primary transition-colors"><div class="card-body">
+          <span class="icon-[tabler--send] text-primary size-7"></span>
+          <h2 class="card-title mt-2">SMTP test</h2>
+          <p>“My app / website / printer can't send email.” Test your outgoing mail server settings and send a test message.</p>
+        </div></a>
+        <a href="#domain" class="card card-border hover:border-primary transition-colors"><div class="card-body">
+          <span class="icon-[tabler--shield-check] text-primary size-7"></span>
+          <h2 class="card-title mt-2">Domain health</h2>
+          <p>“My emails go to spam” or “I'm not receiving email.” Checks MX, SPF, DKIM and DMARC for a domain.</p>
+        </div></a>
+        <a href="#ports" class="card card-border hover:border-primary transition-colors"><div class="card-body">
+          <span class="icon-[tabler--plug-connected] text-primary size-7"></span>
+          <h2 class="card-title mt-2">Port check</h2>
+          <p>“Connection timed out.” Find out if a firewall or your internet provider blocks email ports.</p>
+        </div></a>
+        <a href="#dns" class="card card-border hover:border-primary transition-colors"><div class="card-body">
+          <span class="icon-[tabler--world-search] text-primary size-7"></span>
+          <h2 class="card-title mt-2">DNS lookup</h2>
+          <p>See where a domain points: IP addresses, mail servers, text records and more.</p>
+        </div></a>
+        <a href="#tls" class="card card-border hover:border-primary transition-colors"><div class="card-body">
+          <span class="icon-[tabler--certificate] text-primary size-7"></span>
+          <h2 class="card-title mt-2">Certificate check</h2>
+          <p>“Certificate error” or “connection not secure.” Inspect a mail server's SSL/TLS certificate.</p>
+        </div></a>
+      </div>
+    </section>
+
+    <!-- ============ SMTP ============ -->
+    <section data-page="smtp" hidden>
+      <header class="mb-4">
+        <h1 class="text-2xl font-semibold text-base-content">SMTP test</h1>
+        <p class="text-base-content/70">Enter the outgoing mail settings exactly as you'd put them in your app. We'll walk through each step and tell you where it breaks.</p>
+      </header>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)]">
+        <form class="card self-start" data-tool="smtp" autocomplete="off">
+          <div class="card-body gap-4">
+            <div>
+              <label class="label-text" for="smtp-preset">Email provider</label>
+              <select class="select" id="smtp-preset">
+                <option value="">Other / custom server</option>
+                <option value="gmail">Gmail / Google Workspace</option>
+                <option value="m365">Microsoft 365 / Outlook.com</option>
+                <option value="yahoo">Yahoo Mail</option>
+                <option value="zoho">Zoho Mail</option>
+                <option value="icloud">iCloud Mail</option>
+                <option value="ses">Amazon SES (us-east-1)</option>
+                <option value="sendgrid">SendGrid</option>
+                <option value="mailgun">Mailgun</option>
+                <option value="local">Local test server (MailHog / Mailpit)</option>
+              </select>
+              <p class="helper-text" id="smtp-preset-tip">Choosing a provider fills in the server details for you.</p>
+            </div>
+
+            <div class="grid grid-cols-[1fr_6rem] gap-3">
+              <div>
+                <label class="label-text" for="smtp-host">SMTP server</label>
+                <input class="input" id="smtp-host" name="host" placeholder="smtp.example.com" required>
+              </div>
+              <div>
+                <label class="label-text" for="smtp-port">Port</label>
+                <input class="input" id="smtp-port" name="port" type="number" min="1" max="65535" value="587" required>
+              </div>
+            </div>
+
+            <div>
+              <span class="label-text">Security</span>
+              <div class="join w-full" role="radiogroup">
+                <input class="join-item btn btn-soft flex-1" type="radio" name="security" value="auto" aria-label="Auto" checked>
+                <input class="join-item btn btn-soft flex-1" type="radio" name="security" value="starttls" aria-label="STARTTLS">
+                <input class="join-item btn btn-soft flex-1" type="radio" name="security" value="ssl" aria-label="SSL/TLS">
+                <input class="join-item btn btn-soft flex-1" type="radio" name="security" value="none" aria-label="None">
+              </div>
+              <p class="helper-text">Not sure? Leave it on Auto. Usually 587 = STARTTLS, 465 = SSL/TLS.</p>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="label-text" for="smtp-user">Username</label>
+                <input class="input" id="smtp-user" name="username" placeholder="you@example.com" autocomplete="off">
+              </div>
+              <div>
+                <label class="label-text" for="smtp-pass">Password</label>
+                <div class="input">
+                  <input id="smtp-pass" name="password" type="password" placeholder="••••••••" autocomplete="new-password">
+                  <button type="button" class="block cursor-pointer" data-toggle-password="#smtp-pass" aria-label="Show password">
+                    <span class="icon-[tabler--eye] text-base-content/60 size-5"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p class="helper-text -mt-2">Leave empty if your server doesn't need a login. The password is never stored.</p>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="label-text" for="smtp-from">From address</label>
+                <input class="input" id="smtp-from" name="from" type="email" placeholder="you@example.com" required>
+              </div>
+              <div>
+                <label class="label-text" for="smtp-fromname">From name <span class="text-base-content/50">(optional)</span></label>
+                <input class="input" id="smtp-fromname" name="fromName" placeholder="My App">
+              </div>
+            </div>
+
+            <div>
+              <label class="label-text" for="smtp-to">Send test to</label>
+              <textarea class="textarea" id="smtp-to" name="to" rows="2" placeholder="someone@example.com, another@example.com" required></textarea>
+              <p class="helper-text">One or more addresses, separated by commas or new lines.</p>
+            </div>
+
+            <div>
+              <span class="label-text">What should we do?</span>
+              <div class="flex flex-col gap-2">
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input type="radio" class="radio radio-primary mt-0.5" name="mode" value="send" checked>
+                  <span><span class="font-medium">Send a test email</span><br><span class="text-sm text-base-content/60">Full test, including delivery of a short message.</span></span>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input type="radio" class="radio radio-primary mt-0.5" name="mode" value="verify">
+                  <span><span class="font-medium">Check only, don't send</span><br><span class="text-sm text-base-content/60">Connects, logs in and checks recipients, then stops.</span></span>
+                </label>
+              </div>
+            </div>
+
+            <details class="rounded-box border-base-content/10 border">
+              <summary class="cursor-pointer px-4 py-3 font-medium">Message &amp; advanced options</summary>
+              <div class="flex flex-col gap-3 px-4 pb-4">
+                <div>
+                  <label class="label-text" for="smtp-subject">Subject</label>
+                  <input class="input" id="smtp-subject" name="subject" placeholder="SMTP test from Email Test Tools">
+                </div>
+                <div>
+                  <label class="label-text" for="smtp-body">Message</label>
+                  <textarea class="textarea" id="smtp-body" name="body" rows="3" placeholder="Leave empty for an automatic message with the test details."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="label-text" for="smtp-helo">HELO name</label>
+                    <input class="input" id="smtp-helo" name="heloName" placeholder="automatic">
+                  </div>
+                  <div>
+                    <label class="label-text" for="smtp-timeout">Timeout (seconds)</label>
+                    <input class="input" id="smtp-timeout" name="timeoutSec" type="number" min="1" max="120" value="15">
+                  </div>
+                </div>
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" class="checkbox checkbox-warning" name="skipVerify">
+                  <span class="text-sm">Don't verify the server certificate (self-signed / internal servers)</span>
+                </label>
+              </div>
+            </details>
+
+            <button class="btn btn-primary btn-lg" type="submit">
+              <span class="icon-[tabler--player-play] size-5"></span>Run test
+            </button>
+          </div>
+        </form>
+        <div data-result="smtp"></div>
+      </div>
+    </section>
+
+    <!-- ============ DOMAIN ============ -->
+    <section data-page="domain" hidden>
+      <header class="mb-4">
+        <h1 class="text-2xl font-semibold text-base-content">Domain health</h1>
+        <p class="text-base-content/70">Checks the DNS settings that decide whether a domain can receive email, and whether email sent from it is trusted or lands in spam.</p>
+      </header>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <form class="card self-start" data-tool="domain">
+          <div class="card-body gap-4">
+            <div>
+              <label class="label-text" for="dom-domain">Domain</label>
+              <input class="input" id="dom-domain" name="domain" placeholder="example.com" required>
+              <p class="helper-text">The part after @ in an email address. You can paste a full address too.</p>
+            </div>
+            <div>
+              <label class="label-text" for="dom-sel">DKIM selector <span class="text-base-content/50">(optional)</span></label>
+              <input class="input" id="dom-sel" name="selectors" placeholder="e.g. google, selector1">
+              <p class="helper-text">Leave empty and we'll try the most common ones.</p>
+            </div>
+            <div>
+              <label class="label-text" for="dom-server">DNS server <span class="text-base-content/50">(optional)</span></label>
+              <select class="select" id="dom-server" name="server">
+                <option value="">Your computer's default</option>
+                <option value="1.1.1.1">Cloudflare (1.1.1.1)</option>
+                <option value="8.8.8.8">Google (8.8.8.8)</option>
+                <option value="9.9.9.9">Quad9 (9.9.9.9)</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-lg" type="submit"><span class="icon-[tabler--player-play] size-5"></span>Check domain</button>
+          </div>
+        </form>
+        <div data-result="domain"></div>
+      </div>
+    </section>
+
+    <!-- ============ PORTS ============ -->
+    <section data-page="ports" hidden>
+      <header class="mb-4">
+        <h1 class="text-2xl font-semibold text-base-content">Port check</h1>
+        <p class="text-base-content/70">Tests whether your computer can reach a server on each port. A “blocked” port usually means a firewall or your internet provider is in the way.</p>
+      </header>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <form class="card self-start" data-tool="ports">
+          <div class="card-body gap-4">
+            <div>
+              <label class="label-text" for="ports-host">Server</label>
+              <input class="input" id="ports-host" name="host" placeholder="smtp.example.com" required>
+            </div>
+            <div>
+              <label class="label-text" for="ports-list">Ports</label>
+              <input class="input" id="ports-list" name="ports" value="25, 465, 587, 2525">
+              <div class="mt-2 flex flex-wrap gap-2">
+                <button type="button" class="btn btn-xs btn-soft" data-ports="25, 465, 587, 2525">Sending mail</button>
+                <button type="button" class="btn btn-xs btn-soft" data-ports="110, 143, 993, 995">Reading mail</button>
+                <button type="button" class="btn btn-xs btn-soft" data-ports="25, 110, 143, 465, 587, 993, 995, 2525">All mail ports</button>
+                <button type="button" class="btn btn-xs btn-soft" data-ports="80, 443">Web</button>
+              </div>
+            </div>
+            <div class="alert alert-soft alert-info text-sm">
+              <span class="icon-[tabler--bulb] size-5 shrink-0"></span>
+              <span>Want to know if <b>your</b> network blocks outgoing port 25? <button type="button" class="link link-primary" id="port25-test">Test against Gmail's mail server</button>.</span>
+            </div>
+            <button class="btn btn-primary btn-lg" type="submit"><span class="icon-[tabler--player-play] size-5"></span>Check ports</button>
+          </div>
+        </form>
+        <div data-result="ports"></div>
+      </div>
+    </section>
+
+    <!-- ============ DNS ============ -->
+    <section data-page="dns" hidden>
+      <header class="mb-4">
+        <h1 class="text-2xl font-semibold text-base-content">DNS lookup</h1>
+        <p class="text-base-content/70">DNS is the internet's address book. Look up where a domain points, or which name belongs to an IP address.</p>
+      </header>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <form class="card self-start" data-tool="dns">
+          <div class="card-body gap-4">
+            <div>
+              <label class="label-text" for="dns-name">Domain or IP address</label>
+              <input class="input" id="dns-name" name="name" placeholder="example.com or 203.0.113.10" required>
+            </div>
+            <div>
+              <span class="label-text">Record types</span>
+              <div class="flex flex-wrap gap-x-4 gap-y-2">
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="types" value="A" checked>A</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="types" value="AAAA" checked>AAAA</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="types" value="MX" checked>MX</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="types" value="TXT" checked>TXT</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="types" value="NS" checked>NS</label>
+                <label class="flex items-center gap-2"><input type="checkbox" class="checkbox checkbox-sm" name="types" value="CNAME" checked>CNAME</label>
+              </div>
+              <p class="helper-text">For an IP address we do a reverse (PTR) lookup automatically.</p>
+            </div>
+            <div>
+              <label class="label-text" for="dns-server">DNS server</label>
+              <select class="select" id="dns-server" name="server">
+                <option value="">Your computer's default</option>
+                <option value="1.1.1.1">Cloudflare (1.1.1.1)</option>
+                <option value="8.8.8.8">Google (8.8.8.8)</option>
+                <option value="9.9.9.9">Quad9 (9.9.9.9)</option>
+              </select>
+              <p class="helper-text">Comparing servers helps spot changes that haven't spread everywhere yet.</p>
+            </div>
+            <button class="btn btn-primary btn-lg" type="submit"><span class="icon-[tabler--player-play] size-5"></span>Look up</button>
+          </div>
+        </form>
+        <div data-result="dns"></div>
+      </div>
+    </section>
+
+    <!-- ============ TLS ============ -->
+    <section data-page="tls" hidden>
+      <header class="mb-4">
+        <h1 class="text-2xl font-semibold text-base-content">Certificate check</h1>
+        <p class="text-base-content/70">Checks the security certificate and encryption of a mail (or web) server: is it trusted, does it match the name, when does it expire?</p>
+      </header>
+      <div class="grid gap-6 xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <form class="card self-start" data-tool="tls">
+          <div class="card-body gap-4">
+            <div class="grid grid-cols-[1fr_6rem] gap-3">
+              <div>
+                <label class="label-text" for="tls-host">Server</label>
+                <input class="input" id="tls-host" name="host" placeholder="smtp.example.com" required>
+              </div>
+              <div>
+                <label class="label-text" for="tls-port">Port</label>
+                <input class="input" id="tls-port" name="port" type="number" value="465" min="1" max="65535" required>
+              </div>
+            </div>
+            <div>
+              <label class="label-text" for="tls-mode">Connection type</label>
+              <select class="select" id="tls-mode" name="mode">
+                <option value="auto">Automatic (based on port)</option>
+                <option value="implicit">SSL/TLS from the start (465, 993, 995, 443)</option>
+                <option value="smtp">SMTP + STARTTLS (25, 587)</option>
+                <option value="imap">IMAP + STARTTLS (143)</option>
+                <option value="pop3">POP3 + STLS (110)</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-lg" type="submit"><span class="icon-[tabler--player-play] size-5"></span>Check certificate</button>
+          </div>
+        </form>
+        <div data-result="tls"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Empty-state template for result panels -->
+<template id="tpl-empty">
+  <div class="card border-base-content/20 border border-dashed bg-transparent shadow-none">
+    <div class="card-body items-center py-16 text-center text-base-content/60">
+      <span class="icon-[tabler--clipboard-text] size-10"></span>
+      <p>Results will appear here.</p>
+    </div>
+  </div>
+</template>
+
+<script src="assets/app.js"></script>
+</body>
+</html>

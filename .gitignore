@@ -1,0 +1,6 @@
+node_modules/
+bin/
+dist/
+*.exe
+.DS_Store
+# web/static/assets/app.css is committed on purpose so `go build` works without Node.
