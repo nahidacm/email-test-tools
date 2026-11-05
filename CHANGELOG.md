@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.1] - 2026-11-05
 
 ### Fixed
 - Domain health summary cards now count every blacklist checked (e.g. “20 passed, 1 warning, 6 not checked”) instead of one per server, and show lists that couldn't be queried. The headline and copied text use the same counts.
@@ -42,5 +42,6 @@ First release.
 - Single self-contained binary; localhost-only by default, with DNS-rebinding and cross-site request protection.
 - Installers: Windows setup.exe, `.deb`/`.rpm`/`.apk`, one-line install scripts for macOS/Linux and Windows.
 
+[0.2.1]: https://github.com/nahidacm/email-test-tools/releases/tag/v0.2.1
 [0.2.0]: https://github.com/nahidacm/email-test-tools/releases/tag/v0.2.0
 [0.1.0]: https://github.com/nahidacm/email-test-tools/releases/tag/v0.1.0
