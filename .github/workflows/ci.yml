@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Vet & test
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; echo "Run gofmt"; exit 1; }
+          go vet ./...
+          go test -race ./...
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Compiled CSS is up to date
+        run: |
+          npm ci
+          npm run build:css
+          git diff --exit-code -- web/static/assets/app.css || { echo "::error::Run 'npm run build:css' and commit web/static/assets/app.css"; exit 1; }
+
+      - name: Lint install script
+        run: shellcheck scripts/install.sh
+
+      - name: GoReleaser config & snapshot build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish

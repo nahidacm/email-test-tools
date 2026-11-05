@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"email-test-tools/internal/report"
+	"github.com/nahidacm/email-test-tools/internal/report"
 )
 
 // fakeSMTP is a tiny scripted SMTP server for tests (no TLS).

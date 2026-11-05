@@ -1,0 +1,91 @@
+# GoReleaser config: https://goreleaser.com
+# Run by .github/workflows/release.yml when a tag like v1.2.3 is pushed.
+# Local dry run: goreleaser release --snapshot --clean
+version: 2
+
+project_name: email-test-tools
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: email-test-tools
+    main: .
+    binary: email-test-tools
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    # e.g. email-test-tools_0.1.0_linux_x86_64.tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
+    files:
+      - README.md
+      - LICENSE
+      - CHANGELOG.md
+
+nfpms:
+  - id: packages
+    package_name: email-test-tools
+    file_name_template: >-
+      {{ .PackageName }}_{{ .Version }}_{{ .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}
+    vendor: nahidacm
+    homepage: https://github.com/nahidacm/email-test-tools
+    maintainer: nahidacm <nahidacm@users.noreply.github.com>
+    description: |-
+      Test SMTP settings and debug email delivery problems.
+      A local web app with an SMTP tester, domain health (MX/SPF/DKIM/DMARC),
+      port check, DNS lookup and TLS certificate check, with plain-language
+      explanations and full technical logs.
+    license: MIT
+    section: net
+    formats: [deb, rpm, apk]
+    bindir: /usr/bin
+    contents:
+      - src: packaging/linux/email-test-tools.desktop
+        dst: /usr/share/applications/email-test-tools.desktop
+      - src: web/static/assets/favicon.svg
+        dst: /usr/share/icons/hicolor/scalable/apps/email-test-tools.svg
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^chore:'
+      - '^ci:'
+
+release:
+  github:
+    owner: nahidacm
+    name: email-test-tools
+  header: |
+    ## Install
+
+    | System | Easiest way |
+    |---|---|
+    | **Windows** | Download **`email-test-tools_{{ .Version }}_windows_setup.exe`** below and run it. |
+    | **macOS / Linux** | `curl -fsSL https://raw.githubusercontent.com/nahidacm/email-test-tools/main/scripts/install.sh \| sh` |
+    | **Debian / Ubuntu** | Download the `.deb` below, then `sudo apt install ./email-test-tools_*.deb` |
+    | **Fedora / RHEL** | Download the `.rpm` below, then `sudo dnf install ./email-test-tools_*.rpm` |
+
+    Then run `email-test-tools`. Your browser opens at http://127.0.0.1:8587.
+    See the [User guide](https://github.com/nahidacm/email-test-tools/blob/main/docs/user-guide.md) for details.

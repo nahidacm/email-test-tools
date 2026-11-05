@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"email-test-tools/internal/netcheck"
-	"email-test-tools/internal/report"
-	"email-test-tools/internal/smtpcheck"
+	"github.com/nahidacm/email-test-tools/internal/netcheck"
+	"github.com/nahidacm/email-test-tools/internal/report"
+	"github.com/nahidacm/email-test-tools/internal/smtpcheck"
 )
 
 type Options struct {

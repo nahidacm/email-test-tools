@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Email Test Tools
+GenericName=Email Diagnostics
+Comment=Test SMTP settings and debug email delivery problems
+Exec=email-test-tools
+Icon=email-test-tools
+Terminal=true
+Categories=Network;Email;Utility;
+Keywords=smtp;email;mail;dns;spf;dkim;dmarc;tls;port;

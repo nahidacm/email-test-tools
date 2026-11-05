@@ -23,8 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"email-test-tools/internal/report"
-	"email-test-tools/internal/tlsinfo"
+	"github.com/nahidacm/email-test-tools/internal/report"
+	"github.com/nahidacm/email-test-tools/internal/tlsinfo"
 )
 
 const (

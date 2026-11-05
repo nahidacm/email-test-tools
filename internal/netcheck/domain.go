@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"email-test-tools/internal/report"
+	"github.com/nahidacm/email-test-tools/internal/report"
 )
 
 type DomainRequest struct {

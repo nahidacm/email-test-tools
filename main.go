@@ -17,8 +17,8 @@ import (
 	"syscall"
 	"time"
 
-	"email-test-tools/internal/server"
-	"email-test-tools/web"
+	"github.com/nahidacm/email-test-tools/internal/server"
+	"github.com/nahidacm/email-test-tools/web"
 )
 
 // Set at build time: -ldflags "-X main.version=v1.2.3"

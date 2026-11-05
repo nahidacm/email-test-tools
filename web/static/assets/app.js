@@ -205,7 +205,7 @@
     const secs = (rep.durationMs / 1000).toFixed(1);
     return `
       <div class="flex flex-col gap-4">
-        <div class="alert alert-soft ${s.alert} items-start">
+        <div class="alert alert-soft ${s.alert} flex flex-row items-start gap-4">
           <span class="${s.icon} size-7 shrink-0"></span>
           <div class="min-w-0 flex-1">
             <h2 class="text-lg font-semibold">${esc(rep.headline)}</h2>

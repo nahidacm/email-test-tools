@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"email-test-tools/internal/report"
+	"github.com/nahidacm/email-test-tools/internal/report"
 )
 
 // PortInfo describes well-known ports in plain words.

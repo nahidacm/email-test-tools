@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # The compiled CSS is committed (CI checks it is current), so no Node step is needed.
+      - name: Build binaries, archives and Linux packages
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Windows installer (NSIS)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq nsis
+          VERSION="${GITHUB_REF_NAME#v}"
+          EXE=$(find dist -path '*windows_amd64*' -name email-test-tools.exe | head -n1)
+          test -n "$EXE" || { echo "windows binary not found"; exit 1; }
+          OUT="email-test-tools_${VERSION}_windows_setup.exe"
+          (cd packaging/windows && makensis -V2 -DVERSION="$VERSION" -DBINARY="$GITHUB_WORKSPACE/$EXE" -DOUTFILE="$GITHUB_WORKSPACE/dist/$OUT" installer.nsi)
+          echo "SETUP=dist/$OUT" >> "$GITHUB_ENV"
+
+      - name: Upload installer and update checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd dist
+          sha256sum "$(basename "$SETUP")" >> checksums.txt
+          gh release upload "$GITHUB_REF_NAME" "$(basename "$SETUP")" checksums.txt --clobber
