@@ -88,4 +88,6 @@ release:
     | **Fedora / RHEL** | Download the `.rpm` below, then `sudo dnf install ./email-test-tools_*.rpm` |
 
     Then run `email-test-tools`. Your browser opens at http://127.0.0.1:8587.
+
+    **Already installed?** Close the app and install the new version the same way (run the new setup.exe, re-run the install script, or install the new package). See [Updating](https://github.com/nahidacm/email-test-tools#updating).
     See the [User guide](https://github.com/nahidacm/email-test-tools/blob/main/docs/user-guide.md) for details.

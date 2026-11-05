@@ -86,6 +86,32 @@ docker run --rm -p 127.0.0.1:8587:8587 email-test-tools
 ### Manual
 Every release also has plain `.tar.gz` / `.zip` archives for Linux, macOS and Windows (x86_64 and arm64). Unpack and run `email-test-tools`.
 
+## Updating
+
+Already have Email Test Tools installed? Updating takes a minute, and your saved settings (kept in your browser) stay as they are.
+
+**1. Check your version.** Run `email-test-tools --version`, or look at the bottom of the left menu in the app. Compare it with the [latest release](https://github.com/nahidacm/email-test-tools/releases/latest) and its [changelog](CHANGELOG.md).
+
+**2. Stop the app** (close its window, or press **Ctrl+C** in its terminal), then update the same way you installed:
+
+| Installed with | Update by |
+|---|---|
+| **Windows setup.exe** | Download the new `email-test-tools_<version>_windows_setup.exe` and run it. It installs over the old version in the same folder and keeps your shortcuts. |
+| **Windows PowerShell script** | Run the same command again:<br>`irm https://raw.githubusercontent.com/nahidacm/email-test-tools/main/scripts/install.ps1 \| iex` |
+| **macOS / Linux script** | Run the same command again:<br>`curl -fsSL https://raw.githubusercontent.com/nahidacm/email-test-tools/main/scripts/install.sh \| sh`<br>If you installed to a custom folder, pass it again with `INSTALL_DIR=…`. |
+| **.deb** (Debian, Ubuntu) | Download the new `.deb`, then `sudo apt install ./email-test-tools_<version>_linux_x86_64.deb` |
+| **.rpm** (Fedora, RHEL) | Download the new `.rpm`, then `sudo dnf upgrade ./email-test-tools_<version>_linux_x86_64.rpm` |
+| **.apk** (Alpine) | Download the new `.apk`, then `sudo apk add --allow-untrusted ./email-test-tools_<version>_linux_x86_64.apk` |
+| **Docker** | Rebuild the image: `docker build --no-cache -t email-test-tools https://github.com/nahidacm/email-test-tools.git`, then start a new container. |
+| **Manual archive** | Download the new archive and replace the old `email-test-tools` file with the new one. |
+| **From source** | `git pull`, then `make build` (or `go run .`). |
+
+**3. Start it again**, run `email-test-tools --version` to confirm, and reload the browser tab (**Ctrl+Shift+R** / **Cmd+Shift+R**) so the new interface loads.
+
+To install a specific version instead of the latest, set `VERSION`, e.g. `curl -fsSL …/install.sh | VERSION=v0.1.0 sh` or, in PowerShell, `$env:VERSION="v0.1.0"; irm …/install.ps1 | iex`.
+
+> **Windows:** if the installer says it can't write `email-test-tools.exe`, the app is still running. Close its window (or end it in Task Manager), then click **Retry**.
+
 ## Usage
 
 ```bash

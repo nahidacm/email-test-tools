@@ -16,6 +16,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Show/hide the side menu** on desktop (remembered).
 - **Copy** buttons for every issue and for all issues at once.
 - **Copy AI prompt**: a ready-made prompt for ChatGPT, Claude or an AI agent with the test context, problems, details and log (no passwords), for the whole result or a single issue.
+- README: **Updating** section explaining how to update an existing installation for every install method.
 
 ### Changed
 - Tool pages show either the form or the result, never squeezed side by side.
