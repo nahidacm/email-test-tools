@@ -7,7 +7,7 @@
 **Find out why email isn't working, in plain language.**
 
 Test SMTP settings, check a domain's SPF/DKIM/DMARC, see if a firewall blocks mail ports, and inspect certificates.
-Every result explains itself, with a full protocol log for the experts.
+Every result explains itself, with a full protocol log for the experts, and one click copies a ready-made **AI prompt** to get exact fixes from ChatGPT, Claude or your AI agent.
 
 [![CI](https://github.com/nahidacm/email-test-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/nahidacm/email-test-tools/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/nahidacm/email-test-tools)](https://github.com/nahidacm/email-test-tools/releases/latest)
@@ -31,6 +31,7 @@ It runs **on your own computer** (nothing to sign up for, no data sent to us) an
 |---|---|---|
 | ✉️ | **SMTP test** | Your app, website, printer or CMS can't send email. Tests connect → encrypt → log in → sender → recipients → send, with presets for Gmail, Microsoft 365, Yahoo, Zoho, iCloud, Amazon SES, SendGrid, Mailgun and MailHog/Mailpit. Has a *check only, don't send* mode. |
 | 🛡️ | **Domain health** | Your email lands in spam, or a domain doesn't receive mail. A full report with error/warning counts per area: **authentication** (SPF syntax & 10-lookup limit, DKIM, DMARC, BIMI, MTA-STS), **mail servers** (reverse DNS, SMTP response, STARTTLS, open relay), **DNS** (name server health, SOA), **blacklists** (27 lists) and **website** (HTTPS). Every finding links to a [plain-language explanation](docs/checks.md). |
+| 🤖 | **Copy AI prompt** | On every result: copies the test context, problems, details and log as a prompt for ChatGPT, Claude or an AI agent, for everything or a single issue. Passwords are never included. |
 | 🔌 | **Port check** | You see “connection timed out”. Shows whether ports 25/465/587/993… are open, closed or silently blocked by a firewall or your ISP. |
 | 🌐 | **DNS lookup** | You want to see A, AAAA, MX, TXT, NS, CNAME or PTR records, optionally through a specific DNS server. |
 | 🔒 | **Certificate check** | You get “certificate error” or “connection not secure”. Checks trust, name match, expiry and TLS versions (SSL/TLS or STARTTLS). |

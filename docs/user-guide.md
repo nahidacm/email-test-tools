@@ -16,8 +16,9 @@ This guide explains each tool, how to read the results, and how to fix the most 
 
 1. [Install](../README.md#install) the app and start it (Start menu on Windows, or run `email-test-tools` in a terminal).
 2. Your browser opens at <http://127.0.0.1:8587>. If it doesn't, open that address yourself. The terminal window shows the exact address.
-3. Pick a tool from the left menu.
-4. To stop the app, close the terminal window or press **Ctrl+C** in it.
+3. Pick a tool from the left menu. The <kbd>☰</kbd> button at the top left hides the menu to give results more room.
+4. Fill in the form and run the test. The result replaces the form at full width. **Back to settings** returns to the form (it also cancels a test that is still running), and **Run again** repeats the same test.
+5. To stop the app, close the terminal window or press **Ctrl+C** in it.
 
 Everything runs on your computer. The only outside connections are the ones a test makes: to the mail server, DNS server or host you enter.
 
@@ -35,7 +36,16 @@ Each result has three layers:
    - ℹ️ **Info** / ⏭ **Skipped**: for your information, or not run (for example, sending is skipped in “check only” mode).
 3. **Technical details & log** (click to expand) show raw server replies, error codes and timings. Turn on **Technical details** in the top bar to have these open by default.
 
-When asking for help (from your hosting company, IT team or a forum), click **Copy** on the technical log, or **JSON** to download the full result, and share that. Passwords are always replaced with `[credentials hidden]`.
+### Copying results and asking an AI for help
+
+| Button | Where | Copies |
+|---|---|---|
+| **Copy N issues** | Top bar | Every error and warning as plain text, with what to do and the technical details. Paste it into an email to your provider or IT team. |
+| **Copy AI prompt** | Top bar | A ready-made prompt for ChatGPT, Claude, Copilot or an AI agent: what was tested, every problem with its details, the checks that passed, the protocol log, and clear instructions to explain the cause and give exact fixes (DNS records, settings) and how to verify them. |
+| **Copy** / **AI prompt** | Each step, and each row in the problems table | The same, for just that one issue. |
+| **Copy** / **JSON** | Technical log | The raw log, or the full result as a JSON file. |
+
+Passwords are never included in anything you copy; in logs they appear as `[credentials hidden]`. The text does include what you entered, such as server names, usernames and email addresses, so check it before sharing it publicly.
 
 ## SMTP test
 

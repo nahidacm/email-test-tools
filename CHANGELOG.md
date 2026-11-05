@@ -12,9 +12,13 @@ All notable changes to this project are documented here. The format follows [Kee
   - **Blacklist:** MX IPs against 23 DNS blocklists and the domain against 4 domain blocklists; separates major and minor lists and reports lists that couldn't be checked.
   - **Web server:** HTTPS reachability and certificate, HTTP → HTTPS redirect.
 - Every check has a **More info** link to the new [check reference](docs/checks.md).
+- **Full-width results**: running a test replaces the form with the result, with **Back to settings** (also cancels a running test) and **Run again**.
+- **Show/hide the side menu** on desktop (remembered).
+- **Copy** buttons for every issue and for all issues at once.
+- **Copy AI prompt**: a ready-made prompt for ChatGPT, Claude or an AI agent with the test context, problems, details and log (no passwords), for the whole result or a single issue.
 
 ### Changed
-- Domain health form sits above the report for more room.
+- Tool pages show either the form or the result, never squeezed side by side.
 - New dependency: `golang.org/x/net/dns/dnsmessage`.
 
 ## [0.1.0] - 2026-11-05

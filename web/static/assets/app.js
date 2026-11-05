@@ -32,11 +32,24 @@
   }
   window.addEventListener('hashchange', route);
 
-  // Mobile sidebar
-  const sidebar = $('#sidebar'), backdrop = $('#backdrop');
+  // Sidebar: a drawer on small screens, collapsible on desktop.
+  const sidebar = $('#sidebar'), backdrop = $('#backdrop'), menuBtn = $('#menu-toggle');
+  const desktop = window.matchMedia('(min-width: 1024px)');
   function closeMenu() { sidebar.classList.add('-translate-x-full'); backdrop.hidden = true; }
-  $('#menu-toggle').addEventListener('click', () => { sidebar.classList.remove('-translate-x-full'); backdrop.hidden = false; });
+  function paintSidebar() {
+    const hidden = store.get('sidebar-hidden', false);
+    sidebar.classList.toggle('lg:hidden', hidden);
+    menuBtn.innerHTML = !desktop.matches ? '<span class="icon-[tabler--menu-2] size-5"></span>'
+      : hidden ? '<span class="icon-[tabler--layout-sidebar-left-expand] size-5"></span>'
+      : '<span class="icon-[tabler--layout-sidebar-left-collapse] size-5"></span>';
+    menuBtn.title = desktop.matches ? (hidden ? 'Show menu' : 'Hide menu') : 'Open menu';
+  }
+  menuBtn.addEventListener('click', () => {
+    if (desktop.matches) { store.set('sidebar-hidden', !store.get('sidebar-hidden', false)); paintSidebar(); return; }
+    sidebar.classList.remove('-translate-x-full'); backdrop.hidden = false;
+  });
   backdrop.addEventListener('click', closeMenu);
+  desktop.addEventListener('change', paintSidebar);
 
   // Theme
   const themeBtn = $('#theme-toggle');
@@ -154,49 +167,203 @@
   }
 
   // ------------------------------------------------------------ run a tool
+  // Each tool page shows either its form or its result, full width.
+  const last = {}; // tool -> { req (no password), rep }
+  const running = {}; // tool -> AbortController
+
+  function showView(tool, view) {
+    const f = $(`form[data-tool="${tool}"]`), out = $(`[data-result="${tool}"]`);
+    f.hidden = view !== 'form';
+    out.hidden = view !== 'result';
+    window.scrollTo(0, 0);
+  }
+
   $$('form[data-tool]').forEach((f) => {
     const tool = f.dataset.tool;
     const out = $(`[data-result="${tool}"]`);
     restoreForm(tool, f);
-    out.replaceChildren($('#tpl-empty').content.cloneNode(true));
 
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
       saveForm(tool, f);
-      const btn = $('button[type="submit"]', f);
-      const label = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = '<span class="loading loading-spinner"></span>Testing…';
-      out.innerHTML = loadingCard(tool);
+      const req = COLLECT[tool](f);
+      const shown = { ...req };
+      delete shown.password;
+      last[tool] = { req: shown, rep: null };
+
+      running[tool]?.abort();
+      const ctl = new AbortController();
+      running[tool] = ctl;
+      out.innerHTML = toolbar(tool, null) + loadingCard(tool);
+      bindToolbar(tool, out);
+      showView(tool, 'result');
       try {
         const res = await fetch('api/' + tool, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(COLLECT[tool](f)),
+          body: JSON.stringify(req),
+          signal: ctl.signal,
         });
         if (!res.ok) throw new Error((await res.text()) || res.statusText);
         const rep = await res.json();
-        out.innerHTML = renderReport(rep);
-        bindResult(out, rep);
+        last[tool].rep = rep;
+        out.innerHTML = toolbar(tool, rep) + renderReport(rep);
+        bindToolbar(tool, out);
+        bindResult(out, rep, tool);
       } catch (err) {
-        out.innerHTML = `<div class="alert alert-error"><span class="icon-[tabler--plug-x] size-6 shrink-0"></span>
+        if (err.name === 'AbortError') return;
+        out.innerHTML = toolbar(tool, null) + `<div class="alert alert-error flex flex-row items-start gap-3"><span class="icon-[tabler--plug-x] size-6 shrink-0"></span>
           <div><h3 class="font-semibold">Couldn't reach the Email Test Tools app.</h3>
           <p class="text-sm">Is it still running? Restart it and reload this page.</p>
           <p class="mt-1 font-mono text-xs opacity-70">${esc(err.message)}</p></div></div>`;
+        bindToolbar(tool, out);
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = label;
-        if (window.matchMedia('(max-width: 1279px)').matches) out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (running[tool] === ctl) delete running[tool];
       }
     });
   });
+
+  const TOOL_NAMES = { smtp: 'SMTP test', domain: 'Domain health check', ports: 'Port check', dns: 'DNS lookup', tls: 'Certificate check' };
+
+  // One line describing what was tested, e.g. "smtp.gmail.com:587 · STARTTLS".
+  function describe(tool, r) {
+    if (!r) return '';
+    switch (tool) {
+      case 'smtp': return `${r.host}:${r.port} · ${{ auto: 'Auto security', starttls: 'STARTTLS', ssl: 'SSL/TLS', none: 'No encryption' }[r.security] || r.security}${r.username ? ' · login ' + r.username : ''}${r.mode === 'verify' ? ' · check only' : ''}`;
+      case 'domain': return r.domain;
+      case 'ports': return `${r.host} · ports ${r.ports.join(', ')}`;
+      case 'dns': return `${r.name}${r.server ? ' via ' + r.server : ''}`;
+      case 'tls': return `${r.host}:${r.port}`;
+    }
+    return '';
+  }
+
+  function toolbar(tool, rep) {
+    const problems = rep ? rep.steps.filter((x) => x.status === 'fail' || x.status === 'warn').length : 0;
+    const what = describe(tool, last[tool]?.req);
+    return `<div class="bg-base-100 rounded-box border-base-content/10 sticky top-16 z-10 flex flex-wrap items-center gap-2 border p-2 shadow-sm">
+      <button type="button" class="btn btn-soft" data-back><span class="icon-[tabler--arrow-left] size-5"></span>Back to settings</button>
+      ${rep ? `<button type="button" class="btn btn-text" data-rerun title="Run the same test again"><span class="icon-[tabler--refresh] size-5"></span>Run again</button>` : ''}
+      <span class="min-w-0 flex-1 truncate px-2 text-sm text-base-content/70" title="${esc(what)}">${esc(what)}</span>
+      ${rep ? `<button type="button" class="btn btn-soft" data-copy-all title="Copy the results as text"><span class="icon-[tabler--copy] size-5"></span>${problems ? `Copy ${problems} issue${problems === 1 ? '' : 's'}` : 'Copy result'}</button>
+      <button type="button" class="btn btn-primary" data-prompt-all title="Copy a ready-made prompt to paste into ChatGPT, Claude or another AI agent"><span class="icon-[tabler--sparkles] size-5"></span>Copy AI prompt</button>` : ''}
+    </div>`;
+  }
+
+  function bindToolbar(tool, out) {
+    $('[data-back]', out)?.addEventListener('click', () => { running[tool]?.abort(); showView(tool, 'form'); });
+    $('[data-rerun]', out)?.addEventListener('click', () => $(`form[data-tool="${tool}"]`).requestSubmit());
+    const rep = last[tool]?.rep;
+    if (!rep) return;
+    const issues = rep.steps.filter((x) => x.status === 'fail' || x.status === 'warn');
+    $('[data-copy-all]', out)?.addEventListener('click', (e) => copyText(resultText(tool, rep), e.currentTarget));
+    $('[data-prompt-all]', out)?.addEventListener('click', (e) => copyText(aiPrompt(tool, rep, issues), e.currentTarget));
+  }
 
   function loadingCard(tool) {
     const msg = { smtp: 'Talking to the mail server…', domain: 'Checking DNS, mail servers, blacklists and website… (up to a minute)', ports: 'Knocking on ports…', dns: 'Asking DNS…', tls: 'Inspecting the certificate…' }[tool];
     return `<div class="card"><div class="card-body flex-row items-center gap-4">
       <span class="loading loading-spinner loading-lg text-primary"></span>
-      <div><p class="font-medium">${msg}</p><p class="text-sm text-base-content/60">This can take up to a minute if a server is slow to answer.</p></div>
+      <div><p class="font-medium">${msg}</p><p class="text-sm text-base-content/60">This can take up to a minute if a server is slow to answer. Use “Back to settings” to cancel.</p></div>
     </div></div>`;
+  }
+
+  // ------------------------------------------------------------ copy & AI prompt
+  async function copyText(text, btn) {
+    let ok = true;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      ta.remove();
+    }
+    if (!btn) return;
+    const html = btn.dataset.html || btn.innerHTML;
+    btn.dataset.html = html;
+    const small = btn.classList.contains('btn-xs');
+    btn.innerHTML = ok ? `<span class="icon-[tabler--check] ${small ? 'size-4' : 'size-5'}"></span>Copied` : 'Copy failed';
+    clearTimeout(btn._t);
+    btn._t = setTimeout(() => { btn.innerHTML = html; }, 1600);
+  }
+
+  const LEVEL = { fail: 'Error', warn: 'Warning', ok: 'Passed', info: 'Info', skip: 'Skipped' };
+
+  function stepText(st, withDetails = true) {
+    const out = [`[${LEVEL[st.status] || st.status}] ${st.title}${st.target ? ` (${st.target})` : ''}`];
+    if (st.summary) out.push(st.summary);
+    if (st.hint) out.push('What to do: ' + st.hint);
+    if (withDetails && st.details?.length) out.push('Details:\n' + st.details.map((d) => '  - ' + d).join('\n'));
+    if (st.moreInfo) out.push('More info: ' + st.moreInfo);
+    return out.join('\n');
+  }
+
+  function resultText(tool, rep) {
+    const issues = rep.steps.filter((x) => x.status === 'fail' || x.status === 'warn');
+    const head = `${TOOL_NAMES[tool]}: ${describe(tool, last[tool]?.req)}\n${rep.headline}${rep.advice ? '\n' + rep.advice : ''}\n(${new Date(rep.startedAt).toLocaleString()})`;
+    const list = issues.length ? issues : rep.steps;
+    return head + '\n\n' + list.map((x) => stepText(x)).join('\n\n');
+  }
+
+  function contextLines(tool, r) {
+    if (!r) return [];
+    switch (tool) {
+      case 'smtp': return [
+        `SMTP server: ${r.host}, port ${r.port}`,
+        `Security setting: ${r.security}${r.skipVerify ? ' (certificate verification turned off)' : ''}`,
+        `Login username: ${r.username || '(none)'} (password intentionally not included)`,
+        `From: ${r.from}${r.fromName ? ` (${r.fromName})` : ''}`,
+        `To: ${(r.to || []).join(', ')}`,
+        `Mode: ${r.mode === 'verify' ? 'check only, no message sent' : 'send a test message'}`,
+      ];
+      case 'domain': return [`Domain: ${r.domain}`, `Areas checked: ${(r.checks?.length ? r.checks : ['auth', 'mail', 'dns', 'blacklist', 'web']).join(', ')}`, r.selectors?.length ? `DKIM selectors given: ${r.selectors.join(', ')}` : ''].filter(Boolean);
+      case 'ports': return [`Host: ${r.host}`, `Ports tested: ${r.ports.join(', ')}`];
+      case 'dns': return [`Name: ${r.name}`, `Record types: ${(r.types || []).join(', ') || 'default'}`, `DNS server: ${r.server || 'system default'}`];
+      case 'tls': return [`Server: ${r.host}, port ${r.port}`, `Connection type: ${r.mode}`];
+    }
+    return [];
+  }
+
+  const ROLE = {
+    smtp: 'an expert email systems administrator who knows SMTP, mail clients and email providers (Gmail, Microsoft 365, Amazon SES, etc.)',
+    domain: 'an expert in email deliverability, DNS and mail server administration (SPF, DKIM, DMARC, MX, reverse DNS, blacklists)',
+    ports: 'an expert network administrator who knows firewalls, ISPs and email ports',
+    dns: 'an expert DNS administrator',
+    tls: 'an expert in TLS certificates and mail/web server configuration',
+  };
+
+  // A self-contained prompt for ChatGPT, Claude or a coding/ops agent.
+  function aiPrompt(tool, rep, issues) {
+    const r = last[tool]?.req;
+    const passed = rep.steps.filter((x) => x.status === 'ok');
+    const parts = [];
+    parts.push(`You are ${ROLE[tool] || 'an expert in email delivery and networking'}. Help me fix the problems below, found by the "${TOOL_NAMES[tool]}" in Email Test Tools on ${new Date(rep.startedAt).toLocaleString()}.`);
+    parts.push('## What was tested\n' + contextLines(tool, r).map((l) => '- ' + l).join('\n'));
+    parts.push(`## Overall result\n${rep.headline}${rep.advice ? '\n' + rep.advice : ''}`);
+    if (issues.length) {
+      parts.push(`## Problems to fix (${issues.length})\n` + issues.map((x, i) => `### ${i + 1}. ${stepText(x)}`).join('\n\n'));
+    } else {
+      parts.push('## Problems\nNo errors or warnings were reported. Please review the results below for anything worth improving.');
+    }
+    if (passed.length) parts.push('## Checks that passed (for context)\n' + passed.map((x) => `- ${x.title}${x.target ? ` (${x.target})` : ''}: ${x.summary}`).join('\n'));
+    if (tool !== 'domain' && rep.log?.length) {
+      const log = rep.log.slice(-80).map((l) => `${(l.ms / 1000).toFixed(3)}s ${l.dir} ${l.text}`).join('\n');
+      parts.push('## Technical log (passwords hidden; > sent, < received, * info, ! error)\n```\n' + log + '\n```');
+    }
+    parts.push(`## What I need from you
+1. Explain the root cause of each problem in plain language.
+2. Give exact, step-by-step fixes: full DNS records (type, host/name, value, TTL), server or app configuration, or provider settings, as applicable.
+3. Order the fixes by impact, and say which I can do myself and which need my email, DNS or hosting provider.
+4. Tell me how to verify each fix (I can re-run this test).
+5. If you can act on my systems (DNS, server, code), tell me what you will change before changing it.
+If anything is unclear or depends on information not shown here, ask me before assuming.`);
+    return parts.join('\n\n');
   }
 
   // ------------------------------------------------------------ rendering
@@ -274,7 +441,9 @@
             <td class="whitespace-nowrap">${esc(CATS[x.category]?.name || '')}</td>
             <td class="max-w-48 truncate font-mono text-xs" title="${esc(x.target || '')}">${esc(x.target || '')}</td>
             <td class="min-w-64 whitespace-normal"><span class="font-medium">${esc(x.title)}</span><br><span class="text-sm text-base-content/70">${esc(x.summary)}</span></td>
-            <td class="text-right whitespace-nowrap">${moreInfo(x)}</td>
+            <td class="text-right whitespace-nowrap"><div class="flex items-center justify-end gap-2">${moreInfo(x)}
+              <button type="button" class="btn btn-xs btn-text btn-square" data-copy-step="${esc(x.id)}" title="Copy this message" aria-label="Copy this message"><span class="icon-[tabler--copy] size-4"></span></button>
+              <button type="button" class="btn btn-xs btn-text btn-square text-primary" data-prompt-step="${esc(x.id)}" title="Copy an AI prompt for this issue" aria-label="Copy an AI prompt for this issue"><span class="icon-[tabler--sparkles] size-4"></span></button></div></td>
           </tr>`;
         }).join('')}</tbody>
       </table></div>
@@ -304,7 +473,12 @@
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-baseline justify-between gap-x-3">
           <h3 class="font-medium text-base-content">${esc(st.title)}${st.target ? ` <span class="badge badge-soft badge-sm ms-1 max-w-full truncate align-middle font-mono font-normal">${esc(st.target)}</span>` : ''}</h3>
-          <span class="flex items-center gap-3">${moreInfo(st)}${st.durationMs ? `<span class="text-xs tabular-nums text-base-content/50">${st.durationMs} ms</span>` : ''}</span>
+          <span class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            ${moreInfo(st)}
+            <button type="button" class="btn btn-xs btn-text" data-copy-step="${esc(st.id)}" title="Copy this message"><span class="icon-[tabler--copy] size-4"></span>Copy</button>
+            ${st.status === 'fail' || st.status === 'warn' ? `<button type="button" class="btn btn-xs btn-text text-primary" data-prompt-step="${esc(st.id)}" title="Copy an AI prompt for fixing just this issue"><span class="icon-[tabler--sparkles] size-4"></span>AI prompt</button>` : ''}
+            ${st.durationMs ? `<span class="text-xs tabular-nums text-base-content/50">${st.durationMs} ms</span>` : ''}
+          </span>
         </div>
         ${st.summary ? `<p class="text-base-content/80">${esc(st.summary)}</p>` : ''}
         ${st.hint ? `<p class="bg-base-200 rounded-field mt-2 flex gap-2 p-2 text-sm"><span class="icon-[tabler--bulb] text-warning size-5 shrink-0"></span><span><b>What to do:</b> ${esc(st.hint)}</span></p>` : ''}
@@ -375,10 +549,21 @@
     return '';
   }
 
-  function bindResult(out, rep) {
+  function bindResult(out, rep, tool) {
+    const byId = Object.fromEntries(rep.steps.map((x) => [x.id, x]));
+    $$('[data-copy-step]', out).forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const st = byId[b.dataset.copyStep];
+      if (st) copyText(stepText(st), b);
+    }));
+    $$('[data-prompt-step]', out).forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const st = byId[b.dataset.promptStep];
+      if (st) copyText(aiPrompt(tool, rep, [st]), b);
+    }));
     $$('[data-jump]', out).forEach((row) => row.addEventListener('click', (e) => {
-      if (e.target.closest('a')) return;
-      const el = document.getElementById(row.dataset.jump);
+      if (e.target.closest('a, button')) return;
+      const el = out.querySelector('#' + CSS.escape(row.dataset.jump));
       if (!el) return;
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       el.classList.add('bg-base-200');
@@ -388,8 +573,7 @@
     copy?.addEventListener('click', async (e) => {
       e.preventDefault();
       const text = rep.log.map((l) => `${(l.ms / 1000).toFixed(3)}s ${l.dir} ${l.text}`).join('\n');
-      try { await navigator.clipboard.writeText(text); copy.innerHTML = '<span class="icon-[tabler--check] size-4"></span>Copied'; }
-      catch { copy.textContent = 'Copy failed'; }
+      copyText(text, copy);
     });
     $('[data-download]', out)?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -405,5 +589,6 @@
   // ------------------------------------------------------------ boot
   fetch('api/info').then((r) => r.json()).then((i) => { $('#version').textContent = 'Version ' + i.version; }).catch(() => {});
   paintThemeIcon();
+  paintSidebar();
   route();
 })();
